@@ -1,7 +1,7 @@
 # VECTOR DELTA ENGINE DAEMON (VDED)
 
 * Homepage: https://github.com/jbuchbinder/vded
-* Twitter: @jbuchbinder
+* Twitter: [@jbuchbinder](https://twitter.com/jbuchbinder)
 
 ## What it is / What it does
 
@@ -28,6 +28,11 @@ convenience and (hopefully) speed.
 
 Queries to **vded** are as simple as
 `http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC`
+
+It will return a "hash" of values, including:
+* `last_diff`: Delta between last data reporting period and this one.
+* `per_minute`: Rate per minute since the last piece of data was pushed
+   in
 
 (Please note that host is optional but the rest of the params aren't, so
 you might get an error otherwise.)
