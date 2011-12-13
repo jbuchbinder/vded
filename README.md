@@ -30,6 +30,7 @@ Queries to **vded** are as simple as
 `http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC`
 
 It will return a "hash" of values, including:
+
 * `last_diff`: Delta between last data reporting period and this one.
 * `per_minute`: Rate per minute since the last piece of data was pushed
    in
