@@ -150,6 +150,8 @@ class Vded {
         }
 
         uint64 last_diff = 0;
+        long ts_diff = 0;
+        uint64 per_minute = 0;
 
         // TODO : sort set, etc
         if (vector.values.size == 1) {
@@ -161,10 +163,14 @@ class Vded {
             long max1 = keys[keys.length - 1];
             long max2 = keys[keys.length - 2];
 
+            ts_diff = max1 - max2;
+            if (ts_diff < 0) { ts_diff = -ts_diff; }
+
             last_diff = uint64.parse(vector.values.get(max1)) - uint64.parse(vector.values.get(max2));
+            per_minute = (ts_diff == 0) ? 0 : last_diff / ( ts_diff / 60 );
         }
 
-        string response = "{\"last_diff\":%s}".printf(last_diff.to_string());
+        string response = "{\"last_diff\":%s,\"per_minute\":%s}".printf(last_diff.to_string(),per_minute.to_string());
         msg.set_status(200);
         msg.set_response("application/json", Soup.MemoryUse.COPY, response.data);
     } // end build_return_values
