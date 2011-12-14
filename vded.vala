@@ -6,12 +6,13 @@
  */
 
 using GLib;
+using Json;
 using Posix;
 using Soup;
 
 class Vded {
 
-    public class Vector : Object {
+    public class Vector : GLib.Object {
         public string host { get; set construct; }
         public string name { get; set construct; }
         public Gee.HashMap<long, string> values { get; set construct; }
@@ -40,6 +41,10 @@ class Vded {
     protected Gee.HashMap<string, Vded.Vector> vectors;
     protected Soup.Server rest_server;
 
+    protected bool daemonize = false;
+    public static string lock_file;
+    public static string state_file;
+
     public static void main (string[] args) {
         // Initialize syslog
         Posix.openlog( "vded", LOG_CONS | LOG_PID, LOG_LOCAL0 ); 
@@ -63,7 +68,47 @@ class Vded {
         return host + "/" + vector_name;
     } // end keyname
 
+    public void syntax() {
+        print("VDED ( https://github.com/jbuchbinder/vded )\n" +
+            "\n" +
+            "Flags:\n" +
+            "\t-d             daemonize\n" +
+            "\t-l FILE        specify lockfile\n" +
+            "\t-s FILE        specify state file\n" +
+            "\n");
+        syslog(LOG_ERR, "Syntax error encountered parsing command line arguments.");
+        exit(1);
+    }
+
     public void init (string[] args) {
+        // Parse args
+        for (int i=1; i<args.length; i++) {
+            if (args[i] == "-d") {
+                daemonize = true;
+            } else if (args[i] == "-l") {
+                if (args.length >= i+1) {
+                    lock_file = args[++i];
+                } else {
+                    syntax();
+                }
+            } else if (args[i] == "-s") {
+                if (args.length >= i+1) {
+                    state_file = args[++i];
+                    syslog(LOG_DEBUG, "State file = " + state_file + "\n");
+                } else {
+                    syntax();
+                }
+            } else {
+                // Handle unknown arguments
+                syntax();
+            }
+        }
+
+        if (daemonize) {
+            // FIXME: reenable when this works. :(
+            //daemonize_server();
+        }
+
         // Initialize REST server thread to deal with inbound
         // requests from other parts of the system.
         init_rest_server();
@@ -187,6 +232,70 @@ class Vded {
         rest_server.add_handler("/", rest_callback);
         rest_server.run_async();
     } // end init_rest_server
+
+    public static void signal_handler ( int signum ) {
+        syslog(LOG_ERR, signum.to_string() + " caught");
+        if (lock_file != null) {
+            Posix.unlink(lock_file);
+        }
+        exit(1);
+    } // end signal_handler
+
+    public void serialize() {
+
+    } // end serialize
+
+    protected void daemonize_server () {
+        int pid;
+        int lockfp;
+        string str;
+
+        if (getppid() == 1) {
+            return;
+        }
+        pid = fork();
+        if (pid < 0) {
+            exit(1);
+        }
+        if (pid > 0) {
+            exit(0);
+        }
+
+        /* Try to become root, but ignore if we can't */
+        setuid((uid_t) 0);
+
+        setsid();
+        for (pid = getdtablesize(); pid>=0; --pid) {
+            close(pid);
+        }
+        pid = open("/dev/null", O_RDWR); dup(pid); dup(pid);
+        umask((mode_t) 022);
+        lockfp = Posix.open(lock_file, Posix.O_RDWR | Posix.O_CREAT, 0644);
+        if (lockfp < 0) {
+            syslog(LOG_ERR, "Could not serialize PID to lock file");
+            exit(1);
+        }
+/*
+        Flock fl = Flock();
+        fl.l_type = Posix.F_WRLCK;
+        int fcntl_return = Posix.fcntl (lockfp, Posix.F_SETLK, fl);
+        if (fcntl_return == -1) {
+            syslog(LOG_ERR, "Could not create lock, bailing out");
+            exit(0);
+        }
+*/
+        str = "%d\n".printf(getpid());
+        write(lockfp, str, strlen(str));
+        close(lockfp);
+
+        /* Signal handling */
+        Posix.signal(Posix.SIGCHLD, signal_handler);
+        Posix.signal(Posix.SIGTSTP, signal_handler);
+        Posix.signal(Posix.SIGTTOU, signal_handler);
+        Posix.signal(Posix.SIGTTIN, signal_handler);
+        Posix.signal(Posix.SIGHUP , signal_handler);
+        Posix.signal(Posix.SIGTERM, signal_handler);
+    } // end daemonize_server
 
 } // end class Vded
 
