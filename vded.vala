@@ -62,6 +62,10 @@ class Vded {
     public static string lock_file;
     public static string state_file;
 
+    protected bool ganglia_enabled = false;
+    protected string ganglia_host;
+    protected int ganglia_port;
+
     public static void main (string[] args) {
         // Initialize syslog
         Posix.openlog( "vded", LOG_CONS | LOG_PID, LOG_LOCAL0 ); 
@@ -93,6 +97,8 @@ class Vded {
             "\t-v             verbose\n" +
             "\t-l FILE        specify lockfile\n" +
             "\t-s FILE        specify state file\n" +
+            "\t-G HOST        specify ganglia host (enables ganglia export)\n" +
+            "\t-g HOST        specify ganglia port\n" +
             "\n");
         syslog(LOG_ERR, "Syntax error encountered parsing command line arguments.");
         exit(1);
@@ -105,6 +111,19 @@ class Vded {
                 daemonize = true;
             } else if (args[i] == "-v") {
                 debug = true;
+            } else if (args[i] == "-G") {
+                if (args.length >= i+1) {
+                    ganglia_host = args[++i];
+                    ganglia_enabled = true;
+                } else {
+                    syntax();
+                }
+            } else if (args[i] == "-g") {
+                if (args.length >= i+1) {
+                    ganglia_port = int.parse(args[++i]);
+                } else {
+                    syntax();
+                }
             } else if (args[i] == "-l") {
                 if (args.length >= i+1) {
                     lock_file = args[++i];
