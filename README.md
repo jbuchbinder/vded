@@ -20,7 +20,7 @@ convenience and (hopefully) speed.
 ## Building
 
 * Prerequisites (Ubuntu/Debian):
-`sudo apt-get install valac-0.14 libgee-dev libsoup2.4-dev`
+`sudo apt-get install valac-0.14 libgee-dev libsoup2.4-dev libjson-glib-dev`
 * Building:
 `make`
 
@@ -34,6 +34,7 @@ It will return a "hash" of values, including:
 * `last_diff`: Delta between last data reporting period and this one.
 * `per_minute`: Rate per minute since the last piece of data was pushed
    in
+* `per_hour`: Rate per hour since the last piece of data was pushed in
 
 (Please note that host is optional but the rest of the params aren't, so
 you might get an error otherwise.)

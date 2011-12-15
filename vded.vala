@@ -22,6 +22,22 @@ class Vded {
             values = new Gee.HashMap<long, string>();
         }
 
+        public Json.Object to_json() {
+            var o = new Json.Object();
+            o.set_string_member("host", host);
+            o.set_string_member("name", name);
+
+            var a = new Json.Object();
+            foreach (long k in values.keys) {
+                a.set_string_member(k.to_string(), values[k]);
+            }
+            o.set_object_member("values", a);
+
+            o.set_string_member("latest_value", latest_value.to_string());
+
+            return o;
+        } // end to_json
+
         public string to_string() {
             return "Vded.Vector[host=" + ( host != null ? host : "null" ) +
                 ",name=" + ( name != null ? name : "null" ) +
@@ -42,6 +58,7 @@ class Vded {
     protected Soup.Server rest_server;
 
     protected bool daemonize = false;
+    protected static bool debug = false;
     public static string lock_file;
     public static string state_file;
 
@@ -73,6 +90,7 @@ class Vded {
             "\n" +
             "Flags:\n" +
             "\t-d             daemonize\n" +
+            "\t-v             verbose\n" +
             "\t-l FILE        specify lockfile\n" +
             "\t-s FILE        specify state file\n" +
             "\n");
@@ -85,6 +103,8 @@ class Vded {
         for (int i=1; i<args.length; i++) {
             if (args[i] == "-d") {
                 daemonize = true;
+            } else if (args[i] == "-v") {
+                debug = true;
             } else if (args[i] == "-l") {
                 if (args.length >= i+1) {
                     lock_file = args[++i];
@@ -122,7 +142,7 @@ class Vded {
             Soup.ClientContext client) {
         if (path == "/") {
             // Root path, show some informational page or send 404
-            print("root path requested!\n");
+            if (debug) print("root path requested!\n");
         } else if (path == "/favicon.ico") {
             // TODO: serve up a friendly favicon?
         } else if (path == "/submit") {
@@ -156,33 +176,36 @@ class Vded {
 
             // Look up key
             string key = get_key_name(hostname, vector_name);
-            print("key = %s\n", key);
+            if (debug) print("key = %s\n", key);
 
             Vded.Vector v = null;
             bool create_new = false;
             if (!vectors.has_key(key)) {
-                print("Need to create new key %s\n", key);
+                if (debug) print("Need to create new key %s\n", key);
                 create_new = true;
                 v = new Vded.Vector();
                 v.init_values();
                 v.host = hostname;
                 v.name = vector_name;
             } else {
+                if (debug) print("Found vector " + key + ", retrieving\n");
                 v = vectors.get(key);
             }
 
             // Add value to list of vectors
+            if (debug) print("Add value\n");
             v.add_value(long.parse(ts), value);
 
             if (create_new) {
-                print("Storing new key\n");
+                if (debug) print("Storing new key\n");
                 vectors.set(key, v);
             }
 
+            if (debug) print("Build return values\n");
             build_return_values(msg, v);
 
         } else {
-            print("path = %s\n", path);
+            if (debug) print("path = %s\n", path);
             msg.set_status(404);
             msg.set_response("text/plain", Soup.MemoryUse.COPY, "Path not found.".data);
         }
@@ -197,6 +220,7 @@ class Vded {
         uint64 last_diff = 0;
         long ts_diff = 0;
         uint64 per_minute = 0;
+        uint64 per_hour = 0;
 
         // TODO : sort set, etc
         if (vector.values.size == 1) {
@@ -211,11 +235,16 @@ class Vded {
             ts_diff = max1 - max2;
             if (ts_diff < 0) { ts_diff = -ts_diff; }
 
+            if (debug) print("last_diff\n");
+            if (debug) print(vector.values.get(max1) + " - " + vector.values.get(max2) + "\n");
             last_diff = uint64.parse(vector.values.get(max1)) - uint64.parse(vector.values.get(max2));
-            per_minute = (ts_diff == 0) ? 0 : last_diff / ( ts_diff / 60 );
+            if (debug) print("per min\n");
+            per_minute = (ts_diff == 0 || ts_diff < 30) ? 0 : last_diff / ( ts_diff / 60 );
+            if (debug) print("per hour\n");
+            per_hour = (ts_diff == 0 || ts_diff < 1800) ? 0 : last_diff / ( ts_diff / 3600 );
         }
 
-        string response = "{\"last_diff\":%s,\"per_minute\":%s}".printf(last_diff.to_string(),per_minute.to_string());
+        string response = "{\"last_diff\":%s,\"per_minute\":%s,\"per_hour\":%s}".printf(last_diff.to_string(),per_minute.to_string(),per_hour.to_string());
         msg.set_status(200);
         msg.set_response("application/json", Soup.MemoryUse.COPY, response.data);
     } // end build_return_values
@@ -242,7 +271,23 @@ class Vded {
     } // end signal_handler
 
     public void serialize() {
+        var gen = new Json.Generator();
+        var root = new Json.Node( NodeType.OBJECT );
+        var object = new Json.Object();
+        root.set_object(object);
+        gen.set_root(root);
 
+        var vectors = new Json.Object();
+
+        foreach (string k in this.vectors.keys) {
+            // Add back to list of vectors
+            vectors.set_object_member(k, this.vectors[k].to_json());
+        }
+
+        object.set_object_member("vectors", vectors);
+
+        size_t length;
+        print(gen.to_data(out length) + "\n");
     } // end serialize
 
     protected void daemonize_server () {

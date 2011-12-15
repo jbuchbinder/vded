@@ -8,7 +8,8 @@ PKGS= \
 	--pkg posix
 
 DAEMON_SOURCES= \
-	vded.vala
+	vded.vala \
+	gmetric.vala
 
 all: clean vded
 
