@@ -263,7 +263,18 @@ class Vded {
             per_hour = (ts_diff == 0 || ts_diff < 1800) ? 0 : last_diff / ( ts_diff / 3600 );
         }
 
-        string response = "{\"last_diff\":%s,\"per_minute\":%s,\"per_hour\":%s}".printf(last_diff.to_string(),per_minute.to_string(),per_hour.to_string());
+        var gen = new Json.Generator();
+        var root = new Json.Node( NodeType.OBJECT );
+        var object = new Json.Object();
+        root.set_object(object);
+        gen.set_root(root);
+
+        object.set_string_member("last_diff", last_diff.to_string());
+        object.set_string_member("per_minute", per_minute.to_string());
+        object.set_string_member("per_hour", per_hour.to_string());
+
+        size_t length;
+        string response = gen.to_data(out length);
         msg.set_status(200);
         msg.set_response("application/json", Soup.MemoryUse.COPY, response.data);
     } // end build_return_values
