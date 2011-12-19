@@ -57,11 +57,13 @@ class Gmetric : GLib.Object {
             var resolver = Resolver.get_default ();
             var addresses = yield resolver.lookup_by_name_async (ganglia_host);
             var address = addresses.nth_data (0);
-            var addr = new InetSocketAddress(address, (uint16) ganglia_port);
+            InetSocketAddress addr = new InetSocketAddress(address, (uint16) ganglia_port);
+            bool is_multicast = addr.get_address().get_is_multicast();
             SocketClient sc = new SocketClient();
             sc.family = SocketFamily.IPV4;
             sc.protocol = SocketProtocol.UDP;
-            sc.timeout = 5000;
+            sc.type = SocketType.STREAM;
+            sc.timeout = 5;
             var conn = yield sc.connect_async(addr);
             conn.socket.set_blocking(false);
             var output = new DataOutputStream(conn.output_stream);
