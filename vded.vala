@@ -20,7 +20,20 @@ class Vded {
 
         public void init_values() {
             values = new Gee.HashMap<long, string>();
-        }
+        } // end init_values
+
+        public static Vector from_json(Json.Object o) {
+            Vector v = new Vded.Vector();
+            v.init_values();
+            v.host = o.get_string_member("host");
+            v.name = o.get_string_member("name");
+            v.latest_value = uint64.parse(o.get_string_member("latest_value"));
+            var values = o.get_object_member("values");
+            foreach ( string k in values.get_members() ) {
+                v.values.set(long.parse(k), values.get_string_member(k));
+            }
+            return v;
+        } // end from_json
 
         public Json.Object to_json() {
             var o = new Json.Object();
@@ -83,6 +96,9 @@ class Vded {
         if (rest_server != null) {
             rest_server.quit();
         }
+        if (state_file != null) {
+            serialize();
+        }
     } // end destructor
 
     public string get_key_name(string host, string vector_name) {
@@ -141,6 +157,11 @@ class Vded {
                 // Handle unknown arguments
                 syntax();
             }
+        }
+
+        // If we specified a state file and it exists, load
+        if (state_file != null && FileUtils.test(state_file, GLib.FileTest.EXISTS) == true) {
+            deserialize();
         }
 
         if (daemonize) {
@@ -299,6 +320,24 @@ class Vded {
         }
         exit(1);
     } // end signal_handler
+
+    public void deserialize() {
+        var parser = new Json.Parser ();
+        try {
+            string file_contents;
+            FileUtils.get_contents(state_file, out file_contents);
+            parser.load_from_data(file_contents, -1);
+            var root_object = parser.get_root().get_object();
+            var vectors_object = root_object.get_object_member("vectors");
+            foreach (string vector in vectors_object.get_members()) {
+                vectors.set(vector, Vector.from_json(vectors_object.get_object_member(vector)));
+            }
+        } catch (GLib.FileError e) {
+            syslog(LOG_ERR, e.message);
+        } catch (GLib.Error e) {
+            syslog(LOG_ERR, e.message);
+        }
+    } // end deserialize
 
     public void serialize() {
         var gen = new Json.Generator();
