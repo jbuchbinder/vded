@@ -148,5 +148,23 @@ class Gmetric : GLib.Object {
         return b;
     } // end writemeta
 
+    private static uint8[] HEXCHARS = {
+        (uint8)'0', (uint8)'1', (uint8)'2', (uint8)'3',
+        (uint8)'4', (uint8)'5', (uint8)'6', (uint8)'7',
+        (uint8)'8', (uint8)'9', (uint8)'a', (uint8)'b',
+        (uint8)'c', (uint8)'d', (uint8)'e', (uint8)'f'
+    };
+
+    private static string bytes2hex (uint8[] raw) {
+        int pos = 0;
+        uint8[] hex = { };
+        for (int i = 0; i < raw.length; ++i) {
+            int v = raw[i] & 0xFF;
+            hex[pos++] = HEXCHARS[v >> 4];
+            hex[pos++] = HEXCHARS[v & 0xF];
+        }
+        return (string) hex;
+    }
+
 } // end class Gmetric
 
