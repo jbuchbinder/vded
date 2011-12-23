@@ -1,10 +1,15 @@
 # TODO
 
+## TODO LIST
+
 * Ganglia value export
-* De/serialization to json store on start/exit
-* CLI options parsing
-* Init scripts
 * More time period calculation, etc
 * Configurable purging of older values
 * More documentation
+
+## FINISHED
+
+* De/serialization to json store on start/exit
+* Init scripts
+* CLI options parsing
 
