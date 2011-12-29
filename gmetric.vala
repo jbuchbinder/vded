@@ -64,7 +64,7 @@ class Gmetric : GLib.Object {
 
     public static string SPOOF_HOST = "SPOOF_HOST";
 
-    Gmetric ( string ganglia_host, int ganglia_port, string? ganglia_spoof ) {
+    public Gmetric.new_metric ( string ganglia_host, int ganglia_port, string? ganglia_spoof ) {
         this.ganglia_host = ganglia_host;
         this.ganglia_port = ganglia_port;
         if (ganglia_spoof != null)

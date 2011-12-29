@@ -78,6 +78,7 @@ class Vded {
     protected bool ganglia_enabled = false;
     protected string ganglia_host;
     protected int ganglia_port;
+    protected string? ganglia_spoof;
 
     public static void main (string[] args) {
         // Initialize syslog
@@ -115,6 +116,7 @@ class Vded {
             "\t-s FILE        specify state file\n" +
             "\t-G HOST        specify ganglia host (enables ganglia export)\n" +
             "\t-g HOST        specify ganglia port\n" +
+            "\t-S SPOOF       specify ganglia spoof (IP:hostname)\n" +
             "\n");
         syslog(LOG_ERR, "Syntax error encountered parsing command line arguments.");
         exit(1);
@@ -137,6 +139,12 @@ class Vded {
             } else if (args[i] == "-g") {
                 if (args.length >= i+1) {
                     ganglia_port = int.parse(args[++i]);
+                } else {
+                    syntax();
+                }
+            } else if (args[i] == "-S") {
+                if (args.length >= i+1) {
+                    ganglia_spoof = args[++i];
                 } else {
                     syntax();
                 }
@@ -250,6 +258,14 @@ class Vded {
             msg.set_response("text/plain", Soup.MemoryUse.COPY, "Path not found.".data);
         }
     } // end rest_callback
+
+    public async void submit_to_ganglia (string host, string name, string value) {
+        if (!ganglia_enabled)
+            return;
+
+        Gmetric gm = new Gmetric.new_metric( ganglia_host, ganglia_port, ganglia_spoof );
+        gm.send_metric( host, name, value, "count", Gmetric.ValueType.VALUE_INT, Gmetric.Slope.UNSPECIFIED, 300, 300);
+    } // end submit_to_ganglia
 
     public void build_return_values (Soup.Message msg, Vded.Vector vector) {
         if (vector.values.size == 0) {
