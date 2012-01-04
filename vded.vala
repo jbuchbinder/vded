@@ -310,6 +310,9 @@ class Vded {
         object.set_string_member("per_minute", per_minute.to_string());
         object.set_string_member("per_hour", per_hour.to_string());
 
+        // Push values to ganglia if enabled
+        submit_to_ganglia(vector.host, vector.name, last_diff.to_string());
+
         size_t length;
         string response = gen.to_data(out length);
         msg.set_status(200);
