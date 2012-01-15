@@ -11,8 +11,11 @@ It is meant to accept submissions of values which increment, then
 determine the delta between that value and its predecessor, as well as
 figure the rate over time.
 
-At some point, it'll also de/serialize state to a file, so that history
-isn't lost when it restarts, etc.
+It also has the ability to track on/off values, which it refers to as
+"switches".
+
+It also de/serializes state to a file, so that history isn't lost when
+it restarts.
 
 **vded** is written in [Vala](http://live.gnome.org/Vala), for
 convenience and (hopefully) speed.
@@ -25,6 +28,17 @@ convenience and (hopefully) speed.
 `make`
 
 ## Using
+
+### Switches
+
+`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&value=VALUE&ts=TIMESTAMPINSEC&action=put
+
+* value: ON/on/TRUE/true or OFF/off/FALSE/false
+* timestamp: long representation by seconds
+
+`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&action=get
+
+### Vectors
 
 Queries to **vded** are as simple as
 `http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC`

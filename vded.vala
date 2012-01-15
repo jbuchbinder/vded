@@ -12,6 +12,59 @@ using Soup;
 
 class Vded {
 
+    public class Switch : GLib.Object {
+        public string host { get; set construct; }
+        public string name { get; set construct; }
+        public Gee.HashMap<long, bool> values { get; set construct; }
+        public bool latest_value { get; set construct; }
+
+        public void init_values() {
+            values = new Gee.HashMap<long, bool>();
+        } // end init_values
+
+        public static Switch from_json(Json.Object o) {
+            Switch v = new Vded.Switch();
+            v.init_values();
+            v.host = o.get_string_member("host");
+            v.name = o.get_string_member("name");
+            v.latest_value = o.get_boolean_member("latest_value");
+            var values = o.get_object_member("values");
+            foreach ( string k in values.get_members() ) {
+                v.values.set(long.parse(k), values.get_boolean_member(k));
+            }
+            return v;
+        } // end from_json
+
+        public Json.Object to_json() {
+            var o = new Json.Object();
+            o.set_string_member("host", host);
+            o.set_string_member("name", name);
+
+            var a = new Json.Object();
+            foreach (long k in values.keys) {
+                a.set_boolean_member(k.to_string(), values[k]);
+            }
+            o.set_object_member("values", a);
+
+            o.set_boolean_member("latest_value", latest_value);
+
+            return o;
+        } // end to_json
+
+        public string to_string() {
+            return "Vded.Switch[host=" + ( host != null ? host : "null" ) +
+                ",name=" + ( name != null ? name : "null" ) +
+                ",values=" + ( values != null ? "values" : "null" ) + "]";
+        } // end to_string
+
+        public void add_value(long ts, bool v) {
+            latest_value = v;
+            if (values == null) { init_values(); }
+            values.set(ts, v);
+        } // end add_value
+
+    } // end class Switch
+
     public class Vector : GLib.Object {
         public string host { get; set construct; }
         public string name { get; set construct; }
@@ -67,6 +120,7 @@ class Vded {
     } // end class Vector
 
     // Global variables
+    protected Gee.HashMap<string, Vded.Switch> switches;
     protected Gee.HashMap<string, Vded.Vector> vectors;
     protected Soup.Server rest_server;
 
@@ -89,6 +143,7 @@ class Vded {
     } // end main
 
     Vded() {
+        switches = new Gee.HashMap<string, Vded.Switch>();
         vectors = new Gee.HashMap<string, Vded.Vector>();
     }
 
@@ -102,8 +157,8 @@ class Vded {
         }
     } // end destructor
 
-    public string get_key_name(string host, string vector_name) {
-        return host + "/" + vector_name;
+    public string get_key_name(string host, string key_name) {
+        return host + "/" + key_name;
     } // end keyname
 
     public void syntax() {
@@ -193,7 +248,85 @@ class Vded {
             if (debug) print("root path requested!\n");
         } else if (path == "/favicon.ico") {
             // TODO: serve up a friendly favicon?
-        } else if (path == "/submit") {
+        } else if (path == "/switch") {
+            //print("switch requested!\n");
+            if (query == null) {
+                //print("rest error?\n");
+                rest_error(msg, 1, "Bad parameters");
+            }
+            string action = (query.get("action") == null) ? "put" : query.get("action");
+
+            string hostname = (query.get("host") == null) ? "localhost" : query.get("host");
+            string switch_name = query.get("switch");
+            if (switch_name == null) {
+                rest_error(msg, 2, "Bad parameters (switch not given)");
+                return;
+            }
+
+            if (action == "put") {
+                string value = query.get("value");
+                if (value == null) {
+                    rest_error(msg, 2, "Bad parameters (value not given)");
+                    return;
+                }
+                bool actual_value = false;
+                if (value == "true" || value == "TRUE" || value == "on" || value == "ON") {
+                    actual_value = true;
+                } else if (value == "false" || value == "FALSE" || value == "off" || value == "OFF") {
+                    actual_value = false;
+                } else {
+                    rest_error(msg, 2, "Bad value for switch");
+                    return;
+                }
+
+                string ts = query.get("ts");
+                if (ts == null) {
+                    rest_error(msg, 2, "Bad parameters (ts not given)");
+                    return;
+                }
+
+                // Look up key
+                string key = get_key_name(hostname, switch_name);
+                if (debug) print("key = %s\n", key);
+
+                Vded.Switch v = null;
+                bool create_new = false;
+                if (!switches.has_key(key)) {
+                    if (debug) print("Need to create new key %s\n", key);
+                    create_new = true;
+                    v = new Vded.Switch();
+                    v.init_values();
+                    v.host = hostname;
+                    v.name = switch_name;
+                } else {
+                    if (debug) print("Found switch " + key + ", retrieving\n");
+                    v = switches.get(key);
+                }
+
+                // Add value to list of switches
+                if (debug) print("Add value\n");
+                v.add_value(long.parse(ts), actual_value);
+
+                if (create_new) {
+                    if (debug) print("Storing new key\n");
+                    switches.set(key, v);
+                }
+
+            } else if (action == "get") {
+                // Look up key
+                string key = get_key_name(hostname, switch_name);
+                if (debug) print("key = %s\n", key);
+
+                if (!switches.has_key(key)) {
+                    rest_error(msg, 2, "Switch does not exist");
+                    return;
+                }
+                Vded.Switch v = switches.get(key);
+
+                if (debug) print("Build return values\n");
+                build_switch_return_values(msg, v);
+            }
+        } else if (path == "/submit" || path == "/vector") {
             //print("submit requested!\n");
             if (query == null) {
                 //print("rest error?\n");
@@ -250,7 +383,7 @@ class Vded {
             }
 
             if (debug) print("Build return values\n");
-            build_return_values(msg, v);
+            build_vector_return_values(msg, v);
 
         } else {
             if (debug) print("path = %s\n", path);
@@ -267,7 +400,27 @@ class Vded {
         gm.send_metric( host, name, value, "count", Gmetric.ValueType.VALUE_INT, Gmetric.Slope.UNSPECIFIED, 300, 300);
     } // end submit_to_ganglia
 
-    public void build_return_values (Soup.Message msg, Vded.Vector vector) {
+    public void build_switch_return_values (Soup.Message msg, Vded.Switch s) {
+        if (s.values.size == 0) {
+            rest_error(msg, 3, s.to_string() + " has no values");
+            return;
+        }
+
+        var gen = new Json.Generator();
+        var root = new Json.Node( NodeType.OBJECT );
+        var object = new Json.Object();
+        root.set_object(object);
+        gen.set_root(root);
+
+        object.set_boolean_member("last_value", s.latest_value);
+
+        size_t length;
+        string response = gen.to_data(out length);
+        msg.set_status(200);
+        msg.set_response("application/json", Soup.MemoryUse.COPY, response.data);
+    } // end build_vector_return_values
+
+    public void build_vector_return_values (Soup.Message msg, Vded.Vector vector) {
         if (vector.values.size == 0) {
             rest_error(msg, 3, vector.to_string() + " has no values");
             return;
@@ -317,7 +470,7 @@ class Vded {
         string response = gen.to_data(out length);
         msg.set_status(200);
         msg.set_response("application/json", Soup.MemoryUse.COPY, response.data);
-    } // end build_return_values
+    } // end build_vector_return_values
 
     public void rest_error (Soup.Message msg, int errno, string errmsg) {
         string response = "{\"response_type\": \"ERROR\", \"errno\": %d, \"message\": \"%s\"}".printf(errno, errmsg);
