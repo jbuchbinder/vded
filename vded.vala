@@ -504,6 +504,12 @@ class Vded {
             foreach (string vector in vectors_object.get_members()) {
                 vectors.set(vector, Vector.from_json(vectors_object.get_object_member(vector)));
             }
+            var switches_object = root_object.get_object_member("switches");
+            if (switches_object != null) {
+                foreach (string s in switches_object.get_members()) {
+                    switches.set(s, Switch.from_json(switches_object.get_object_member(s)));
+                }
+            }
         } catch (GLib.FileError e) {
             syslog(LOG_ERR, e.message);
         } catch (GLib.Error e) {
@@ -518,14 +524,23 @@ class Vded {
         root.set_object(object);
         gen.set_root(root);
 
-        var vectors = new Json.Object();
+        var my_vectors = new Json.Object();
 
         foreach (string k in this.vectors.keys) {
             // Add back to list of vectors
-            vectors.set_object_member(k, this.vectors[k].to_json());
+            my_vectors.set_object_member(k, this.vectors[k].to_json());
         }
 
-        object.set_object_member("vectors", vectors);
+        object.set_object_member("vectors", my_vectors);
+
+        var my_switches = new Json.Object();
+
+        foreach (string k in this.switches.keys) {
+            // Add back to list of switches
+            my_switches.set_object_member(k, this.switches[k].to_json());
+        }
+
+        object.set_object_member("switches", my_switches);
 
         size_t length;
         print(gen.to_data(out length) + "\n");
