@@ -1,0 +1,43 @@
+Summary: Vector Delta Engine Daemon
+Name: vded
+Version: @VERSION@
+URL: http://github.com/jbuchbinder/vded
+Release: 1
+License: BSD
+Vendor: Jeff Buchbinder <jbuchbinder@users.github.com>
+Group: System Environment/Base
+Source: %{name}-%{version}.tar.gz
+Buildroot: %{_tmppath}/%{name}-%{version}-buildroot
+BuildRequires: vala
+Prefix: %{_prefix}
+
+%description
+
+%prep
+%setup -n %{name}-%{version}
+
+%build
+
+%install
+# Flush any old RPM build root
+%__rm -rf $RPM_BUILD_ROOT
+
+%__rm -rf $RPM_BUILD_ROOT/%{_prefix}/conf
+%__install -d -m 0755 $RPM_BUILD_ROOT%{_prefix}/sbin
+%__cp -rf vded $RPM_BUILD_ROOT%{_prefix}/sbin/vded
+
+%post
+/sbin/chkconfig --add vded
+
+%files
+%defattr(-,root,root)
+/var/lib/ganglia/conf/*
+%config(noreplace) /etc/vded.conf
+
+%clean
+%__rm -rf $RPM_BUILD_ROOT
+
+%changelog
+* Sun Jan 22 2012 Jeff Buchbinder <jbuchbinder@users.github.com>
+- Initial packaging
+

@@ -11,12 +11,22 @@ DAEMON_SOURCES= \
 	vded.vala \
 	gmetric.vala
 
-all: clean vded
+CLIENT_SOURCES= \
+	vde-client.vala
+
+all: clean vded vde-client
 
 clean:
-	rm -f vded
+	rm -f vded vde-client
 
 vded:
 	@echo "Building $@ ... "
 	@valac $(PKGS) -o $@ $(DAEMON_SOURCES)
+
+vde-client:
+	@echo "Building $@ ... "
+	@valac $(PKGS) -o $@ $(CLIENT_SOURCES)
+
+vded.spec:
+	sed -e "s/@VERSION@/`cat VERSION`/;" vded.spec.in > $@
 
