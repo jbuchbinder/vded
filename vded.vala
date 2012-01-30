@@ -244,8 +244,18 @@ class Vded {
             string path, GLib.HashTable<string,string>? query,
             Soup.ClientContext client) {
         if (path == "/") {
-            // Root path, show some informational page or send 404
+            // Root path, show some slightly informational page
             if (debug) print("root path requested!\n");
+            msg.set_status(200);
+            string r = "<html>\n" +
+                "<head>\n" +
+                "<title>VDED</title>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "<p>You've reached 'VDED'. You're probably looking for the RESTful API. More documentation available on <a href=\"https://github.com/jbuchbinder/vded\">github.com</a>.</p>\n" +
+                "</body>\n" +
+                "</html>\n";
+            msg.set_response("text/plain", Soup.MemoryUse.COPY, r.data);
         } else if (path == "/favicon.ico") {
             // TODO: serve up a friendly favicon?
         } else if (path == "/switch") {

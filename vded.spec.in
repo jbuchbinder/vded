@@ -22,16 +22,23 @@ Prefix: %{_prefix}
 # Flush any old RPM build root
 %__rm -rf $RPM_BUILD_ROOT
 
-%__rm -rf $RPM_BUILD_ROOT/%{_prefix}/conf
+%__install -d -m 0755 $RPM_BUILD_ROOT/etc
+%__cp -rf vded.conf $RPM_BUILD_ROOT/etc/vded.conf
+%__install -d -m 0755 $RPM_BUILD_ROOT/etc/init.d
+%__cp -rf vded.init $RPM_BUILD_ROOT/etc/init.d/vded
 %__install -d -m 0755 $RPM_BUILD_ROOT%{_prefix}/sbin
 %__cp -rf vded $RPM_BUILD_ROOT%{_prefix}/sbin/vded
+%__install -d -m 0755 $RPM_BUILD_ROOT%{_prefix}/bin
+%__cp -rf vde-client $RPM_BUILD_ROOT%{_prefix}/bin/vde-client
 
 %post
 /sbin/chkconfig --add vded
 
 %files
 %defattr(-,root,root)
-/var/lib/ganglia/conf/*
+/etc/init.d/vded
+%{_prefix}/sbin/vded
+%{_prefix}/bin/vde-client
 %config(noreplace) /etc/vded.conf
 
 %clean
