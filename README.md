@@ -41,7 +41,7 @@ convenience and (hopefully) speed.
 ### Vectors
 
 Queries to **vded** are as simple as
-`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC`
+`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE
 
 It will return a "hash" of values, including:
 
@@ -49,6 +49,9 @@ It will return a "hash" of values, including:
 * `per_minute`: Rate per minute since the last piece of data was pushed
    in
 * `per_hour`: Rate per hour since the last piece of data was pushed in
+* `submit_metric`: (Optional) Whether to enable pushing deltas to
+   ganglia through gmetric. Defaults to true. Possible values are:
+   TRUE, FALSE, true, false, YES, NO, yes, no, 0, 1
 
 (Please note that host is optional but the rest of the params aren't, so
 you might get an error otherwise.)

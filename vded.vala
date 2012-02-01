@@ -17,6 +17,7 @@ class Vded {
         public string name { get; set construct; }
         public Gee.HashMap<long, bool> values { get; set construct; }
         public bool latest_value { get; set construct; }
+        public bool submit_metric { get; set construct; default = true; }
 
         public void init_values() {
             values = new Gee.HashMap<long, bool>();
@@ -28,6 +29,7 @@ class Vded {
             v.host = o.get_string_member("host");
             v.name = o.get_string_member("name");
             v.latest_value = o.get_boolean_member("latest_value");
+            v.submit_metric = o.get_boolean_member("submit_metric");
             var values = o.get_object_member("values");
             foreach ( string k in values.get_members() ) {
                 v.values.set(long.parse(k), values.get_boolean_member(k));
@@ -47,6 +49,7 @@ class Vded {
             o.set_object_member("values", a);
 
             o.set_boolean_member("latest_value", latest_value);
+            o.set_boolean_member("submit_metric", submit_metric);
 
             return o;
         } // end to_json
@@ -70,6 +73,7 @@ class Vded {
         public string name { get; set construct; }
         public Gee.HashMap<long, string> values { get; set construct; }
         public uint64 latest_value { get; set construct; }
+        public bool submit_metric { get; set construct; default = true; }
 
         public void init_values() {
             values = new Gee.HashMap<long, string>();
@@ -81,6 +85,7 @@ class Vded {
             v.host = o.get_string_member("host");
             v.name = o.get_string_member("name");
             v.latest_value = uint64.parse(o.get_string_member("latest_value"));
+            v.submit_metric = o.get_boolean_member("submit_metric");
             var values = o.get_object_member("values");
             foreach ( string k in values.get_members() ) {
                 v.values.set(long.parse(k), values.get_string_member(k));
@@ -100,6 +105,7 @@ class Vded {
             o.set_object_member("values", a);
 
             o.set_string_member("latest_value", latest_value.to_string());
+            o.set_boolean_member("submit_metric", submit_metric);
 
             return o;
         } // end to_json
@@ -295,6 +301,16 @@ class Vded {
                     return;
                 }
 
+                bool submit_metric = true;
+                if (query.get("submit_metric") != null) {
+                    weak string s = query.get("submit_metric");
+                    if (s == "true" || s == "1" || s == "TRUE" || s == "yes" || s == "YES") {
+                        submit_metric = true;
+                    } else if (s == "false" || s == "0" || s == "FALSE" || s == "no" || s == "NO") {
+                        submit_metric = false;
+                    }
+                }
+
                 // Look up key
                 string key = get_key_name(hostname, switch_name);
                 if (debug) print("key = %s\n", key);
@@ -308,6 +324,7 @@ class Vded {
                     v.init_values();
                     v.host = hostname;
                     v.name = switch_name;
+                    v.submit_metric = submit_metric;
                 } else {
                     if (debug) print("Found switch " + key + ", retrieving\n");
                     v = switches.get(key);
@@ -345,6 +362,15 @@ class Vded {
 
             string hostname = (query.get("host") == null) ? "localhost" : query.get("host");
             string vector_name = query.get("vector");
+            bool submit_metric = true;
+            if (query.get("submit_metric") != null) {
+                weak string s = query.get("submit_metric");
+                if (s == "true" || s == "1" || s == "TRUE" || s == "yes" || s == "YES") {
+                    submit_metric = true;
+                } else if (s == "false" || s == "0" || s == "FALSE" || s == "no" || s == "NO") {
+                    submit_metric = false;
+                }
+            }
             if (vector_name == null) {
                 rest_error(msg, 2, "Bad parameters (vector not given)");
                 return;
@@ -378,6 +404,7 @@ class Vded {
                 v.init_values();
                 v.host = hostname;
                 v.name = vector_name;
+                v.submit_metric = submit_metric;
             } else {
                 if (debug) print("Found vector " + key + ", retrieving\n");
                 v = vectors.get(key);
@@ -474,7 +501,9 @@ class Vded {
         object.set_string_member("per_hour", per_hour.to_string());
 
         // Push values to ganglia if enabled
-        submit_to_ganglia(vector.host, vector.name, last_diff.to_string());
+        if (vector.submit_metric) {
+            submit_to_ganglia(vector.host, vector.name, last_diff.to_string());
+        }
 
         size_t length;
         string response = gen.to_data(out length);
