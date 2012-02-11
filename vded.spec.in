@@ -8,6 +8,7 @@ Vendor: Jeff Buchbinder <jbuchbinder@users.github.com>
 Group: System Environment/Base
 Source: %{name}-%{version}.tar.gz
 Buildroot: %{_tmppath}/%{name}-%{version}-buildroot
+Requires: node
 BuildRequires: vala
 Prefix: %{_prefix}
 
@@ -28,8 +29,6 @@ Prefix: %{_prefix}
 %__cp -rf vded.init $RPM_BUILD_ROOT/etc/init.d/vded
 %__install -d -m 0755 $RPM_BUILD_ROOT%{_prefix}/sbin
 %__cp -rf vded $RPM_BUILD_ROOT%{_prefix}/sbin/vded
-%__install -d -m 0755 $RPM_BUILD_ROOT%{_prefix}/bin
-%__cp -rf vde-client $RPM_BUILD_ROOT%{_prefix}/bin/vde-client
 
 %post
 /sbin/chkconfig --add vded
@@ -38,7 +37,6 @@ Prefix: %{_prefix}
 %defattr(-,root,root)
 /etc/init.d/vded
 %{_prefix}/sbin/vded
-%{_prefix}/bin/vde-client
 %config(noreplace) /etc/vded.conf
 
 %clean

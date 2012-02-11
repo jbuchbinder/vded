@@ -5,6 +5,7 @@
 * More time period calculation, etc
 * Configurable purging of older values
 * More documentation
+* Test Ganglia gmetric export fully
 
 ## FINISHED
 
