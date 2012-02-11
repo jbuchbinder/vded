@@ -17,15 +17,13 @@ It also has the ability to track on/off values, which it refers to as
 It also de/serializes state to a file, so that history isn't lost when
 it restarts.
 
-**vded** is written in [Vala](http://live.gnome.org/Vala), for
+**vded** is written in [node.js](http://nodejs.org/), for
 convenience and (hopefully) speed.
 
 ## Building
 
 * Prerequisites (Ubuntu/Debian):
-`sudo apt-get install valac-0.14 libgee-dev libsoup2.4-dev libjson-glib-dev`
-* Building:
-`make`
+`sudo apt-get install nodejs npm ; sudo npm install gmetric`
 
 ## Using
 
