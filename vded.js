@@ -20,6 +20,7 @@ var ganglia_spoof = null;
 var max_entries = 0;
 var vectors = [];
 var switches = [];
+var purgeInterval = 30 * 1000;
 
 parseArgs(process.argv.splice(2));
 
@@ -174,13 +175,56 @@ http.createServer(function(req,resp) {
 	}
 }).listen(server_port);
 
-process.on('exit', function() {
+// Start up purge process
+var purgeProcess = setInterval(function () {
+	if (maxEntries <= 0) {
+		// Skip purging if we have no limit
+		return;
+	}
+
+	var i = 0;
+	for (i=0; i<vectors.length; i++) {
+		var vector_values = Object.keys(vectors[i].values).length;
+		if (vector_values <= maxEntries) {
+			// If we don't have enough entries, skip this vector
+			continue;
+		}
+
+		var keys = new Array();
+		for (var j in vector[i].values) {
+			keys.push(j);
+		}
+		keys.sort();
+
+		// Slice off (NUM_ENTRIES - maxEntries) - 1
+		keys.slice(0, (vector_values - maxEntries) - 1);
+		for (var k in keys) {
+			console.log("Vector " + v.host + "/" + v.name + " purging ts " + ts);
+			delete vector[i].values[k];
+		}
+	}
+}, purgeInterval);
+
+function onExit() {
+	// Kill purge process if it's running
+	if (purgeProcess != null) {
+		console.log("Remove purge process");
+		clearInterval( purgeProcess );
+	}
+
 	// Save state to file.
+	console.log("Serialize to file");
 	serializeToFile();
 
 	// Remove pid
+	console.log("Remove PID");
 	removePid();
-});
+
+	process.exit();
+}
+
+process.on('SIGINT', onExit);
+process.on('SIGQUIT', onExit);
 
 // Convenience functions
 
@@ -326,15 +370,15 @@ function serializeToFile() {
 	if (statefile != '') {
 		console.log("Serializing state to " + statefile);
 		var obj = {
-			vectors: vectors,
-			switches: switches
+			"vectors": vectors,
+			"switches": switches
 		};
-		fs.writeFile( statefile, JSON.stringify(obj) );
+		fs.writeFileSync( statefile, JSON.stringify(obj) );
 	}
 }
 
 function deserializeFromFile() {
-	if (statefile != '' && fs.lstat(statefile).isFile()) {
+	if (statefile != '' && fs.lstat(statefile) != null) {
 		console.log("Retrieving state from " + statefile);
 		var obj = JSON.parse( fs.readFileSync( statefile ) );
 		vectors = obj['vectors'];
