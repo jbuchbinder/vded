@@ -1,0 +1,5 @@
+#
+# Configuration options for VDED
+#
+
+VDED_OPTIONS=" -S /var/lib/vded/state.json "
