@@ -29,17 +29,17 @@ convenience and (hopefully) speed.
 
 ### Switches
 
-`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&value=VALUE&ts=TIMESTAMPINSEC&action=put
+`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&value=VALUE&ts=TIMESTAMPINSEC&action=put`
 
 * value: ON/on/TRUE/true or OFF/off/FALSE/false
 * timestamp: long representation by seconds
 
-`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&action=get
+`http://localhost:48333/switch?host=HOSTNAME&switch=NAME&action=get`
 
 ### Vectors
 
 Queries to **vded** are as simple as
-`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE
+`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE`
 
 It will return a "hash" of values, including:
 
