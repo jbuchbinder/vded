@@ -18,9 +18,10 @@ var ganglia_host = null;
 var ganglia_port = 8649;
 var ganglia_spoof = null;
 var max_entries = 0;
-var vectors = [];
-var switches = [];
+var vectors = {};
+var switches = {};
 var purgeInterval = 30 * 1000;
+var flushInterval = 1 * 60 * 1000;
 
 parseArgs(process.argv.splice(2));
 
@@ -88,7 +89,7 @@ http.createServer(function(req,resp) {
 			var v = {
 				'host': hostname,
 				'name': vector_name,
-				'spoof': args['spoof'],
+				'spoof': args['spoof'] ? args['spoof'] : true,
 				'submit_metric': submit_metric == null ? true : submit_metric,
 				'latest_value': value,
 				'values': { }
@@ -97,9 +98,12 @@ http.createServer(function(req,resp) {
 			vectors[key] = v;
 		}
 
+		// DEBUG
+		//console.log( sys.inspect(vectors[key], 100) );
+
 		var obj = buildVectorResponse(key);
-		console.log( "Current object value = " + JSON.stringify(obj) );
-		console.log( "obj.values.length = " + Object.keys(obj.values).length );
+		//console.log( "Current object value = " + JSON.stringify(obj) );
+		//console.log( "obj.values.length = " + Object.keys(obj.values).length );
 		if (Object.keys(obj.values).length > 1 && obj.submit_metric) {
 			submitToGanglia( obj.host, obj.name, obj, obj.latest_value );
 		}
@@ -177,6 +181,12 @@ http.createServer(function(req,resp) {
 	}
 }).listen(server_port);
 
+var flushProcess = setInterval(function () {
+	// Save state to file.
+	console.log("Serialize to file");
+	serializeToFile( );
+}, flushInterval);
+
 // Start up purge process
 var purgeProcess = setInterval(function () {
 	if (max_entries <= 0) {
@@ -186,8 +196,8 @@ var purgeProcess = setInterval(function () {
 
 	var i = 0;
 	for (i=0; i<vectors.length; i++) {
-		var vector_values = Object.keys(vectors[i].values).length;
-		if (vector_values <= max_entries) {
+		var vectorvalues = Object.keys(vectors[i].values).length;
+		if (vectorvalues <= max_entries) {
 			// If we don't have enough entries, skip this vector
 			continue;
 		}
@@ -199,7 +209,7 @@ var purgeProcess = setInterval(function () {
 		keys.sort();
 
 		// Slice off (NUM_ENTRIES - max_entries) - 1
-		keys.slice(0, (vector_values - max_entries) - 1);
+		keys.slice(0, (vectorvalues - max_entries) - 1);
 		for (var k in keys) {
 			console.log("Vector " + v.host + "/" + v.name + " purging ts " + ts);
 			delete vector[i].values[k];
@@ -214,9 +224,14 @@ function onExit() {
 		clearInterval( purgeProcess );
 	}
 
-	// Save state to file.
+	if (flushProcess != null) {
+		console.log("Remove flush process");
+		clearInterval( flushProcess );
+	}
+
+	// Serialize to file on shutdown
 	console.log("Serialize to file");
-	serializeToFile();
+	serializeToFile( );
 
 	// Remove pid
 	console.log("Remove PID");
@@ -369,21 +384,24 @@ function removePid() {
 	}
 }
 
-function serializeToFile() {
+function serializeToFile( ) {
 	if (statefile != '') {
 		console.log("Serializing state to " + statefile);
-		var obj = { };
-		obj['vectors'] = vectors;
-		obj['switches'] = switches;
-		console.log( JSON.stringify(obj) );
-		fs.writeFileSync( statefile, JSON.stringify(obj) );
+		var obj = {};
+		obj.vectors = vectors;
+		obj.switches = switches;
+		var out = JSON.stringify( obj );
+		console.log( out );
+		fs.writeFileSync( statefile, out, 'utf8' );
 	}
 }
 
 function deserializeFromFile() {
-	if (statefile != '' && fs.lstat(statefile) != null) {
+	if (statefile != '' && fs.statSync(statefile) != null) {
 		console.log("Retrieving state from " + statefile);
-		var obj = JSON.parse( fs.readFileSync( statefile ) );
+		var raw = fs.readFileSync( statefile, 'utf8' );
+		console.log(raw);
+		var obj = JSON.parse( raw );
 		vectors = obj['vectors'];
 		switches = obj['switches'];
 	}
