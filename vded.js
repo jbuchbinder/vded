@@ -7,7 +7,7 @@ var http = require('http');
 var sys  = require('sys');
 var url  = require('url');
 var fs   = require('fs');
-var gm   = require('gmetric');
+var gm   = require('./gmetric');
 
 // Default values, overriden by command arguments
 var server_port = 48333;
@@ -98,8 +98,10 @@ http.createServer(function(req,resp) {
 		}
 
 		var obj = buildVectorResponse(key);
-		if (obj.values.length > 1 && vector.submit_metric) {
-			submitToGanglia( vector.host, vector.name, vector, obj.latest_value );
+		console.log( "Current object value = " + JSON.stringify(obj) );
+		console.log( "obj.values.length = " + Object.keys(obj.values).length );
+		if (Object.keys(obj.values).length > 1 && obj.submit_metric) {
+			submitToGanglia( obj.host, obj.name, obj, obj.latest_value );
 		}
 		createResponse(resp, 200, obj);
 	} else if (path == '/switch') {
@@ -177,7 +179,7 @@ http.createServer(function(req,resp) {
 
 // Start up purge process
 var purgeProcess = setInterval(function () {
-	if (maxEntries <= 0) {
+	if (max_entries <= 0) {
 		// Skip purging if we have no limit
 		return;
 	}
@@ -185,7 +187,7 @@ var purgeProcess = setInterval(function () {
 	var i = 0;
 	for (i=0; i<vectors.length; i++) {
 		var vector_values = Object.keys(vectors[i].values).length;
-		if (vector_values <= maxEntries) {
+		if (vector_values <= max_entries) {
 			// If we don't have enough entries, skip this vector
 			continue;
 		}
@@ -196,8 +198,8 @@ var purgeProcess = setInterval(function () {
 		}
 		keys.sort();
 
-		// Slice off (NUM_ENTRIES - maxEntries) - 1
-		keys.slice(0, (vector_values - maxEntries) - 1);
+		// Slice off (NUM_ENTRIES - max_entries) - 1
+		keys.slice(0, (vector_values - max_entries) - 1);
 		for (var k in keys) {
 			console.log("Vector " + v.host + "/" + v.name + " purging ts " + ts);
 			delete vector[i].values[k];
@@ -248,6 +250,7 @@ function parseArgs(argv) {
 				case 'ghost':
 					ganglia_host = argv[pos];
 					ganglia_enabled = true;
+					console.log("Enable send to ganglia");
 					break;
 				case 'gport':
 					ganglia_port = argv[pos];
@@ -327,7 +330,7 @@ function createResponse(resp, status, obj) {
 
 function buildVectorResponse(key) {
 	var v = vectors[key];
-	if (v.values.length == 1) {
+	if (Object.keys(v.values).length == 1) {
 		// Only one, return with no calculation
 		v['last_diff'] = v.latest_value;
 		v['per_minute'] = 0;
@@ -335,7 +338,7 @@ function buildVectorResponse(key) {
 	} else {
 		// Determine differences
 		var keys = new Array();
-		for (var i in v.values) {
+		for (var i in v['values']) {
 			keys.push(i);
 		}
 		keys.sort();
@@ -369,10 +372,10 @@ function removePid() {
 function serializeToFile() {
 	if (statefile != '') {
 		console.log("Serializing state to " + statefile);
-		var obj = {
-			"vectors": vectors,
-			"switches": switches
-		};
+		var obj = { };
+		obj['vectors'] = vectors;
+		obj['switches'] = switches;
+		console.log( JSON.stringify(obj) );
 		fs.writeFileSync( statefile, JSON.stringify(obj) );
 	}
 }
@@ -387,9 +390,11 @@ function deserializeFromFile() {
 }
 
 function submitToGanglia( host, name, vector, value ) {
+	console.log("submitToGanglia()");
 	if (!ganglia_enabled) { return; }
+	console.log("Send value " + value);
 	var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof != null ? vector.spoof : ganglia_spoof );
-	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_UNSPECIFIED, 300, 300 );
+	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300 );
 }
 
 console.log("VDED listening on port " + server_port);
