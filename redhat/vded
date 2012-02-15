@@ -20,7 +20,7 @@
 
 NAME=vded
 INSTALL_DIR=/usr/share/$NAME
-NODE_EXE=/usr/bin/node
+NODE_EXE=/usr/bin/nodejs
 VDED_OPTIONS=
 
 [ -x $NODE_EXE ] || exit 0
