@@ -105,7 +105,7 @@ http.createServer(function(req,resp) {
 		//console.log( "Current object value = " + JSON.stringify(obj) );
 		//console.log( "obj.values.length = " + Object.keys(obj.values).length );
 		if (Object.keys(obj.values).length > 1 && obj.submit_metric) {
-			submitToGanglia( obj.host, obj.name, obj, obj.latest_value );
+			submitToGanglia( obj.host, obj.name, obj, obj['last_diff'] );
 		}
 		createResponse(resp, 200, obj);
 	} else if (path == '/switch') {
