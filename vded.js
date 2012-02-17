@@ -419,7 +419,7 @@ function submitToGanglia( host, name, vector, value ) {
 	console.log("submitToGanglia()");
 	if (!ganglia_enabled) { return; }
 	console.log("Send value " + value);
-	var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof != null ? vector.spoof : ganglia_spoof );
+	var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof ? ganglia_spoof : null );
 	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
 }
 
