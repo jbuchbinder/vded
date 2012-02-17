@@ -114,7 +114,7 @@ gmetric.prototype.typeToFormatString = function ( t ) {
     }
 }
 
-gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof, group ) {
+gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof ) {
     //console.log("writevalue()");
     this.append_int( buf, 128 + 5 );
     this.append_xdr_string( buf, host );
@@ -139,7 +139,7 @@ gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof, gro
     }
 }
 
-gmetric.prototype.writemeta = function ( buf, host, name, type, units, slope, tmax, dmax, spoof ) {
+gmetric.prototype.writemeta = function ( buf, host, name, type, units, slope, tmax, dmax, spoof, group ) {
     //console.log("writemeta()");
     this.append_int( buf, 128 ); // gmetadata_full
     this.append_xdr_string( buf, spoof == null ? host : spoof );
@@ -170,8 +170,8 @@ gmetric.prototype.sendMetric = function ( host, name, value, units, type, slope,
     if (group == null) {
         group = 'vector';
     }
-    this.writemeta( message, host, name, type, units, slope, tmax, dmax, this._ganglia_spoof );
-    this.writevalue( message, host, name, type, value, this._ganglia_spoof, group );
+    this.writemeta( message, host, name, type, units, slope, tmax, dmax, this._ganglia_spoof, group );
+    this.writevalue( message, host, name, type, value, this._ganglia_spoof );
     var client = dgram.createSocket('udp4');
     console.log("Send " + message._length + " bytes to " + this._ganglia_host + ":" + this._ganglia_port);
     try {
