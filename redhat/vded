@@ -27,6 +27,8 @@ VDED_OPTIONS=
 [ -f $INSTALL_DIR/vded.js ] || exit 0
 [ -f /etc/vded/config ] && . /etc/vded/config
 
+mkdir -p /var/lib/vded
+
 RETVAL=0
 
 #
