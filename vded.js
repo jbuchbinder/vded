@@ -4,10 +4,10 @@
 // vim: tabstop=4:softtabstop=4:shiftwidth=4:noexpandtab
 
 var http = require('http');
-var sys  = require('sys');
 var url  = require('url');
 var fs   = require('fs');
-var gm   = require('./gmetric');
+//var gm   = require('./gmetric');
+var exec = require('child_process').exec;
 
 // Default values, overriden by command arguments
 var server_port = 48333;
@@ -98,9 +98,6 @@ http.createServer(function(req,resp) {
 			v.values[ts] = value;
 			vectors[key] = v;
 		}
-
-		// DEBUG
-		//console.log( sys.inspect(vectors[key], 100) );
 
 		var obj = buildVectorResponse(key);
 		//console.log( "Current object value = " + JSON.stringify(obj) );
@@ -419,8 +416,25 @@ function submitToGanglia( host, name, vector, value ) {
 	console.log("submitToGanglia()");
 	if (!ganglia_enabled) { return; }
 	console.log("Send value " + value);
-	var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof ? ganglia_spoof : null );
-	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
+
+	var cmd = "/usr/bin/gmetric -g vector " +
+		" -n '" + vector.name + "' " +
+		" -v '" + value + "' " +
+		" -u 'count' -x 300 -t uint32 " +
+		( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
+	console.log("GMETRIC CMD: " + cmd);
+	exec( cmd, function (error, stdout, stderr) {
+		if (error != null) {
+			console.log("GMETRIC error  : " + error);
+		}
+		if (stdout != null || stderr != null) {
+			console.log("GMETRIC stdout : " + stdout);
+			console.log("GMETRIC stderr : " + stderr);
+		}
+	});
+
+	//var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof ? ganglia_spoof : null );
+	//g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
 }
 
 console.log("VDED listening on port " + server_port);
