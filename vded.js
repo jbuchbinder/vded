@@ -397,13 +397,17 @@ function serializeToFile( ) {
 }
 
 function deserializeFromFile() {
-	if (statefile != '' && fs.statSync(statefile) != null) {
-		console.log("Retrieving state from " + statefile);
-		var raw = fs.readFileSync( statefile, 'utf8' );
-		console.log(raw);
-		var obj = JSON.parse( raw );
-		vectors = obj['vectors'];
-		switches = obj['switches'];
+	try {
+		if (statefile != '' && fs.lstatSync(statefile)) {
+			console.log("Retrieving state from " + statefile);
+			var raw = fs.readFileSync( statefile, 'utf8' );
+			console.log(raw);
+			var obj = JSON.parse( raw );
+			vectors = obj['vectors'] != null ? obj['vectors'] : { };
+			switches = obj['switches'] != null ? obj['switches'] : { };
+		}
+	} catch (e) {
+		console.log("State file does not exist, skipping deserialization.");
 	}
 }
 
