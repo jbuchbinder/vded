@@ -82,6 +82,9 @@ http.createServer(function(req,resp) {
 			if (args['spoof'] != null) {
 				vectors[key].spoof = args['spoof'];
 			}
+			if (args['units'] != null) {
+				vectors[key].units = args['units'];
+			}
 			if (submit_metric != null) {
 				vectors[key].submit_metric = submit_metric;
 			}
@@ -93,6 +96,7 @@ http.createServer(function(req,resp) {
 				'spoof': args['spoof'] ? args['spoof'] : true,
 				'submit_metric': submit_metric == null ? true : submit_metric,
 				'latest_value': value,
+				'units': args['units'] ? args['units'] : 'count',
 				'values': { }
 			};
 			v.values[ts] = value;
@@ -417,10 +421,12 @@ function submitToGanglia( host, name, vector, value ) {
 	if (!ganglia_enabled) { return; }
 	console.log("Send value " + value);
 
+	// Hack to send using gmetric binary until node-gmetric works properly
 	var cmd = "/usr/bin/gmetric -g vector " +
 		" -n '" + vector.name + "' " +
 		" -v '" + value + "' " +
-		" -u 'count' -x 300 -t uint32 " +
+		" -u '" + (vector.units == null ? 'count' : vector.units ) + "' " +
+		" -x 300 -t uint32 " +
 		( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
 	console.log("GMETRIC CMD: " + cmd);
 	exec( cmd, function (error, stdout, stderr) {
@@ -433,6 +439,7 @@ function submitToGanglia( host, name, vector, value ) {
 		}
 	});
 
+	// TODO: Fix native gmetric support
 	//var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof ? ganglia_spoof : null );
 	//g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
 }

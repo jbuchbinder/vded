@@ -39,7 +39,7 @@ convenience and (hopefully) speed.
 ### Vectors
 
 Queries to **vded** are as simple as
-`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE`
+`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS`
 
 It will return a "hash" of values, including:
 
@@ -50,6 +50,8 @@ It will return a "hash" of values, including:
 * `submit_metric`: (Optional) Whether to enable pushing deltas to
    ganglia through gmetric. Defaults to true. Possible values are:
    TRUE, FALSE, true, false, YES, NO, yes, no, 0, 1
+* `units`: (Optional) Unit name used when submitting metrics to Ganglia.
+   This defaults to use "count" if nothing is specified.
 
 (Please note that host is optional but the rest of the params aren't, so
 you might get an error otherwise.)
