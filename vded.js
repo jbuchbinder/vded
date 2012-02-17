@@ -78,6 +78,7 @@ http.createServer(function(req,resp) {
 		if (vectors[key] != null) {
 			// Use old entry
 			vectors[key].values[ts] = value;
+			vectors[key].latest_value = value;
 			if (args['spoof'] != null) {
 				vectors[key].spoof = args['spoof'];
 			}
