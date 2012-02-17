@@ -420,7 +420,7 @@ function submitToGanglia( host, name, vector, value ) {
 	if (!ganglia_enabled) { return; }
 	console.log("Send value " + value);
 	var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof != null ? vector.spoof : ganglia_spoof );
-	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300 );
+	g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
 }
 
 console.log("VDED listening on port " + server_port);

@@ -18,6 +18,7 @@ var VALUE_INT             = 5;
 var VALUE_FLOAT           = 6;
 var VALUE_DOUBLE          = 7;
 
+var GROUP      = "GROUP";
 var SPOOF_HOST = "SPOOF_HOST";
 
 function ByteBuffer ( size ) {
@@ -113,27 +114,26 @@ gmetric.prototype.typeToFormatString = function ( t ) {
     }
 }
 
-gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof ) {
+gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof, group ) {
     //console.log("writevalue()");
-    this.append_int( buf, 128 + type );
+    this.append_int( buf, 128 + 5 );
     this.append_xdr_string( buf, host );
     this.append_xdr_string( buf, name );
     this.append_bool( buf, spoof != null );
 
     //console.log("typeToFormatString( " + type + ") = " + this.typeToFormatString(type).replace('%', '%%'));
-    this.append_xdr_string( buf, this.typeToFormatString( type ) );
-    
+    this.append_xdr_string( buf, '%s' );
+
     switch (type) {
         case VALUE_UNSIGNED_SHORT:
         case VALUE_SHORT:
         case VALUE_UNSIGNED_INT:
         case VALUE_INT:
-            this.append_int( buf, val );
-            break;
         case VALUE_FLOAT:
         case VALUE_DOUBLE:
         case VALUE_STRING:
         case VALUE_UNKNOWN:
+        default:
             this.append_xdr_string( buf, val );
             break;
     }
@@ -142,7 +142,7 @@ gmetric.prototype.writevalue = function ( buf, host, name, type, val, spoof ) {
 gmetric.prototype.writemeta = function ( buf, host, name, type, units, slope, tmax, dmax, spoof ) {
     //console.log("writemeta()");
     this.append_int( buf, 128 ); // gmetadata_full
-    this.append_xdr_string( buf, host );
+    this.append_xdr_string( buf, spoof == null ? host : spoof );
     this.append_xdr_string( buf, name );
     this.append_bool( buf, spoof != null );
 
@@ -154,19 +154,24 @@ gmetric.prototype.writemeta = function ( buf, host, name, type, units, slope, tm
     this.append_int( buf, dmax );
 
     if (spoof == null) {
-        this.append_int( buf, 0 );
+        this.append_int( buf, 1 );
     } else {
-        this.append_bool( buf, true );
+        this.append_int( buf, 2 );
         this.append_xdr_string( buf, SPOOF_HOST );
         this.append_xdr_string( buf, spoof );
     }
+    this.append_xdr_string( buf, GROUP );
+    this.append_xdr_string( buf, group );
 }
 
-gmetric.prototype.sendMetric = function ( host, name, value, units, type, slope, tmax, dmax ) {
+gmetric.prototype.sendMetric = function ( host, name, value, units, type, slope, tmax, dmax, group ) {
     console.log("gmetric.sendMetric()");
     var message = new ByteBuffer(512);
+    if (group == null) {
+        group = 'vector';
+    }
     this.writemeta( message, host, name, type, units, slope, tmax, dmax, this._ganglia_spoof );
-    this.writevalue( message, host, name, type, value, this._ganglia_spoof );
+    this.writevalue( message, host, name, type, value, this._ganglia_spoof, group );
     var client = dgram.createSocket('udp4');
     console.log("Send " + message._length + " bytes to " + this._ganglia_host + ":" + this._ganglia_port);
     try {
