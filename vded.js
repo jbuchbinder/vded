@@ -362,6 +362,9 @@ function buildVectorResponse(key) {
 		var ts_diff = max1 - max2;
 		if (ts_diff < 0) { ts_diff = -ts_diff; }
 		v['last_diff'] = v.values[max1] - v.values[max2];
+		// FIXME: These need to track back in history to find the entries
+		// which most closely match their timestamps, and use those
+		// values to figure rate over time.
 		v['per_minute'] = (ts_diff < 30) ? 0 : v['last_diff'] / ( ts_diff / 60 );
 		v['per_hour'] = (ts_diff < 1800) ? 0 : v['last_diff'] / ( ts_diff / 3600 );
 	}
