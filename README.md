@@ -39,7 +39,7 @@ convenience and (hopefully) speed.
 ### Vectors
 
 Queries to **vded** are as simple as
-`http://localhost:48333/submit?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS`
+`http://localhost:48333/vector?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS`
 
 It will return a "hash" of values, including:
 
