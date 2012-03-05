@@ -22,12 +22,13 @@ NAME=vded
 INSTALL_DIR=/usr/share/$NAME
 NODE_EXE=/usr/bin/nodejs
 VDED_OPTIONS=
+LOGFILE=/var/log/vded.log
 
 [ -x $NODE_EXE ] || exit 0
 [ -f $INSTALL_DIR/vded.js ] || exit 0
 [ -f /etc/vded/config ] && . /etc/vded/config
 
-mkdir -p /var/lib/vded
+mkdir -p /var/lib/vded /var/log
 
 RETVAL=0
 
@@ -40,7 +41,7 @@ start() {
 	if [ ! -f /var/lock/subsys/$NAME ]; then
 	    echo -n $"Starting $NAME daemon: "
         # daemon
-        $NODE_EXE $INSTALL_DIR/vded.js $VDED_OPTIONS >/dev/null 2>&1 &
+        $NODE_EXE $INSTALL_DIR/vded.js $VDED_OPTIONS >> $LOGFILE 2>&1 &
 	      RETVAL=$?
         if [ $RETVAL -eq 0 ]; then
             touch /var/lock/subsys/$NAME
@@ -58,14 +59,10 @@ stop() {
     pid=$(ps aux | grep vded.js | grep node | awk '{print $2}')
     kill $pid
 	RETVAL=$?
-    if [ $RETVAL -eq 0 ]; then
-        rm -f /var/lock/subsys/$NAME
-        echo_success
-    else
-        echo_failure
-    fi
+    rm -f /var/lock/subsys/$NAME
+    echo_success
 	echo
-    return $RETVAL
+    return 0
 }
 
 
