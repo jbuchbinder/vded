@@ -208,8 +208,7 @@ var purgeProcess = setInterval(function () {
 		return;
 	}
 
-	var i = 0;
-	for (i=0; i<vectors.length; i++) {
+	for (var i in vectors) {
 		var vectorvalues = Object.keys(vectors[i].values).length;
 		if (vectorvalues <= max_entries) {
 			// If we don't have enough entries, skip this vector
@@ -217,7 +216,7 @@ var purgeProcess = setInterval(function () {
 		}
 
 		var keys = new Array();
-		for (var j in vector[i].values) {
+		for (var j in vectors[i].values) {
 			keys.push(j);
 		}
 		keys.sort();
@@ -225,8 +224,8 @@ var purgeProcess = setInterval(function () {
 		// Slice off (NUM_ENTRIES - max_entries) - 1
 		keys.slice(0, (vectorvalues - max_entries) - 1);
 		for (var k in keys) {
-			console.log("Vector " + v.host + "/" + v.name + " purging ts " + ts);
-			delete vector[i].values[k];
+			console.log("Vector " + vectors[i].host + "/" + vectors[i].name + " purging ts " + k);
+			delete vectors[i].values[k];
 		}
 	}
 }, purgeInterval);
