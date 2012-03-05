@@ -108,6 +108,18 @@ http.createServer(function(req,resp) {
 		//console.log( "obj.values.length = " + Object.keys(obj.values).length );
 		if (Object.keys(obj.values).length > 1 && obj.submit_metric) {
 			submitToGanglia( obj.host, obj.name, obj, obj['last_diff'] );
+			if (obj['per_5min'] != null) {
+				submitToGanglia( obj.host, obj.name + '_per_5min', obj, obj['per_5min'] );
+			}
+			if (obj['per_10min'] != null) {
+				submitToGanglia( obj.host, obj.name + '_per_10min', obj, obj['per_10min'] );
+			}
+			if (obj['per_30min'] != null) {
+				submitToGanglia( obj.host, obj.name + '_per_30min', obj, obj['per_30min'] );
+			}
+			if (obj['per_1hour'] != null) {
+				submitToGanglia( obj.host, obj.name + '_per_hour', obj, obj['per_1hour'] );
+			}
 		}
 		createResponse(resp, 200, obj);
 	} else if (path == '/switch') {
@@ -363,14 +375,58 @@ function buildVectorResponse(key) {
 		var max2 = keys[keys.length - 2];
 		var ts_diff = max1 - max2;
 		if (ts_diff < 0) { ts_diff = -ts_diff; }
-		v['last_diff'] = v.values[max1] - v.values[max2];
-		// FIXME: These need to track back in history to find the entries
+		if (v.values[max1] < v.values[max2]) {
+			// Deal with vector value resets, not perfect, but good enough
+			v['last_diff'] = v.values[max1];
+		} else {
+			// As normal, use actual difference
+			v['last_diff'] = v.values[max1] - v.values[max2];
+		}
+
+		// These to track back in history to find the entries
 		// which most closely match their timestamps, and use those
 		// values to figure rate over time.
+		var key5min  = getClosestAgeEntry(v, v['last_diff'],  300);
+		if (key5min != null) {
+			var diff = v['last_diff'] - key5min;
+			v['per_5min'] = v.values[key5min] / ( diff / 300 );
+		}
+		var key10min = getClosestAgeEntry(v, v['last_diff'],  600);
+		if (key5min != null) {
+			var diff = v['last_diff'] - key10min;
+			v['per_10min'] = v.values[key10min] / ( diff / 600 );
+		}
+		var key30min = getClosestAgeEntry(v, v['last_diff'], 1800);
+		if (key30min != null) {
+			var diff = v['last_diff'] - key10min;
+			v['per_30min'] = v.values[key30min] / ( diff / 1800 );
+		}
+		var key1hour = getClosestAgeEntry(v, v['last_diff'], 3600);
+		if (key1hour != null) {
+			var diff = v['last_diff'] - key1hour;
+			v['per_hour'] = v.values[key1hour] / ( diff / 3600 );
+			v['per_1hour'] = v.values[key1hour] / ( diff / 3600 );
+		}
+
+		// Standard "per minute" calculation
 		v['per_minute'] = (ts_diff < 30) ? 0 : v['last_diff'] / ( ts_diff / 60 );
-		v['per_hour'] = (ts_diff < 1800) ? 0 : v['last_diff'] / ( ts_diff / 3600 );
 	}
 	return v;
+}
+
+function getClosestAgeEntry(vector, now, age) {
+	var target = now - age;
+	var found = null;
+	var bestDiff = 9999999;
+
+	// Grab list of keys (which double as timestamps)
+	for (var j in vector.values) {
+		if ( Math.abs( j - target ) < bestDiff ) {
+			bestDiff = Math.abs( j - target );
+			found = j;
+		}
+	}
+	return found;
 }
 
 function getKeyName(host, value) {
@@ -423,7 +479,7 @@ function submitToGanglia( host, name, vector, value ) {
 
 	// Hack to send using gmetric binary until node-gmetric works properly
 	var cmd = "/usr/bin/gmetric -g vector " +
-		" -n '" + vector.name + "' " +
+		" -n '" + name + "' " +
 		" -v '" + value + "' " +
 		" -u '" + (vector.units == null ? 'count' : vector.units ) + "' " +
 		" -x 300 -t uint32 " +
