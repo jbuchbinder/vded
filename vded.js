@@ -203,7 +203,9 @@ var flushProcess = setInterval(function () {
 
 // Start up purge process
 var purgeProcess = setInterval(function () {
+	console.log("PURGE|Start purge process");
 	if (max_entries <= 0) {
+		console.log("PURGE|No purge limit, exiting.");
 		// Skip purging if we have no limit
 		return;
 	}
@@ -215,17 +217,16 @@ var purgeProcess = setInterval(function () {
 			continue;
 		}
 
-		var keys = new Array();
-		for (var j in vectors[i].values) {
-			keys.push(j);
-		}
-		keys.sort();
+		var vKeys = Object.keys(vectors[i].values);
+		vKeys.sort();
 
 		// Slice off (NUM_ENTRIES - max_entries) - 1
-		keys.slice(0, (vectorvalues - max_entries) - 1);
-		for (var k in keys) {
-			console.log("Vector " + vectors[i].host + "/" + vectors[i].name + " purging ts " + k);
-			delete vectors[i].values[k];
+		vKeys.slice(0, (vectorvalues - max_entries) - 1);
+		var idx = 0;
+		for (idx = 0; idx < vKeys.length; idx++) {
+			var ts = vKeys[idx];
+			console.log("PURGE|Vector " + vectors[i].host + "/" + vectors[i].name + " purging ts " + ts);
+			delete vectors[i].values[ts];
 		}
 	}
 }, purgeInterval);
