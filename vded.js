@@ -31,9 +31,6 @@ writePid();
 // Load data, if there is any, from state file
 deserializeFromFile();
 
-// TODO: Thread to trim number of remembered entries for values to
-// max_entries for switches and vectors
-
 http.createServer(function(req,resp) {
 	var uparse = url.parse(req.url, true);
 	var path = uparse.pathname;
@@ -85,6 +82,9 @@ http.createServer(function(req,resp) {
 			if (args['units'] != null) {
 				vectors[key].units = args['units'];
 			}
+			if (args['group'] != null) {
+				vectors[key].group = args['group'];
+			}
 			if (submit_metric != null) {
 				vectors[key].submit_metric = submit_metric;
 			}
@@ -97,6 +97,7 @@ http.createServer(function(req,resp) {
 				'submit_metric': submit_metric == null ? true : submit_metric,
 				'latest_value': value,
 				'units': args['units'] ? args['units'] : 'count',
+				'group': args['group'] ? args['group'] : 'vectors',
 				'values': { }
 			};
 			v.values[ts] = value;
@@ -478,10 +479,11 @@ function submitToGanglia( host, name, vector, value ) {
 	console.log("Send value " + value);
 
 	// Hack to send using gmetric binary until node-gmetric works properly
-	var cmd = "/usr/bin/gmetric -g vector " +
+	var cmd = "/usr/bin/gmetric " + 
+		" -g '" + ( vector.group != null ? vector.group : 'vectors' ) "' " +
 		" -n '" + name + "' " +
 		" -v '" + value + "' " +
-		" -u '" + (vector.units == null ? 'count' : vector.units ) + "' " +
+		" -u '" + ( vector.units == null ? 'count' : vector.units ) + "' " +
 		" -x 300 -t uint32 " +
 		( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
 	console.log("GMETRIC CMD: " + cmd);
@@ -496,8 +498,8 @@ function submitToGanglia( host, name, vector, value ) {
 	});
 
 	// TODO: Fix native gmetric support
-	//var g = new gm.gmetric( ganglia_host, ganglia_port, vector.spoof ? ganglia_spoof : null );
-	//g.sendMetric( host, name, value, "count", gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, 'vector' );
+	//var g = new gm.gmetric( ganglia_host, ganglia_port, ganglia_spoof != null ? ganglia_spoof : null );
+	//g.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
 }
 
 console.log("VDED listening on port " + server_port);

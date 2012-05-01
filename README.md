@@ -39,7 +39,7 @@ convenience and (hopefully) speed.
 ### Vectors
 
 Queries to **vded** are as simple as
-`http://localhost:48333/vector?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS`
+`http://localhost:48333/vector?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS&group=GROUP`
 
 It will return a "hash" of values, including:
 
@@ -52,7 +52,10 @@ It will return a "hash" of values, including:
    TRUE, FALSE, true, false, YES, NO, yes, no, 0, 1
 * `units`: (Optional) Unit name used when submitting metrics to Ganglia.
    This defaults to use "count" if nothing is specified.
+* `group`: (Optional) Name of Ganglia metrics group. Defaults to using
+   "vectors" if nothing is specified.
 
 (Please note that host is optional but the rest of the params aren't, so
 you might get an error otherwise.)
+
 
