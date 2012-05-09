@@ -6,7 +6,7 @@
 var http = require('http');
 var url  = require('url');
 var fs   = require('fs');
-//var gm   = require('./gmetric');
+var gm   = require('./gmetric');
 var exec = require('child_process').exec;
 
 // Default values, overriden by command arguments
@@ -479,27 +479,27 @@ function submitToGanglia( host, name, vector, value ) {
 	console.log("Send value " + value);
 
 	// Hack to send using gmetric binary until node-gmetric works properly
-	var cmd = "/usr/bin/gmetric " + 
-		" -g '" + ( vector.group != null ? vector.group : 'vectors' ) "' " +
-		" -n '" + name + "' " +
-		" -v '" + value + "' " +
-		" -u '" + ( vector.units == null ? 'count' : vector.units ) + "' " +
-		" -x 300 -t uint32 " +
-		( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
-	console.log("GMETRIC CMD: " + cmd);
-	exec( cmd, function (error, stdout, stderr) {
-		if (error != null) {
-			console.log("GMETRIC error  : " + error);
-		}
-		if (stdout != null || stderr != null) {
-			console.log("GMETRIC stdout : " + stdout);
-			console.log("GMETRIC stderr : " + stderr);
-		}
-	});
+	//var cmd = "/usr/bin/gmetric " + 
+	//	" -g '" + ( vector.group != null ? vector.group : 'vectors' ) "' " +
+	//	" -n '" + name + "' " +
+	//	" -v '" + value + "' " +
+	//	" -u '" + ( vector.units == null ? 'count' : vector.units ) + "' " +
+	//	" -x 300 -t uint32 " +
+	//	( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
+	//console.log("GMETRIC CMD: " + cmd);
+	//exec( cmd, function (error, stdout, stderr) {
+	//	if (error != null) {
+	//		console.log("GMETRIC error  : " + error);
+	//	}
+	//	if (stdout != null || stderr != null) {
+	//		console.log("GMETRIC stdout : " + stdout);
+	//		console.log("GMETRIC stderr : " + stderr);
+	//	}
+	//});
 
-	// TODO: Fix native gmetric support
-	//var g = new gm.gmetric( ganglia_host, ganglia_port, ganglia_spoof != null ? ganglia_spoof : null );
-	//g.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
+	// Native gmetric support
+	var g = new gm.gmetric( ganglia_host, ganglia_port, ganglia_spoof != null ? ganglia_spoof : null );
+	g.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
 }
 
 console.log("VDED listening on port " + server_port);
