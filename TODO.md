@@ -5,7 +5,7 @@
 * More time period calculation, etc
 * Configurable purging of older values
 * More documentation
-* Test Ganglia gmetric export fully
+* Redis backend instead of using native storage ( https://github.com/mranney/node_redis )
 
 ## FINISHED
 
@@ -13,4 +13,5 @@
 * Init scripts
 * CLI options parsing
 * Ganglia value export
+* Test Ganglia gmetric export fully
 

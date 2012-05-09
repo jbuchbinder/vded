@@ -23,7 +23,7 @@ convenience and (hopefully) speed.
 ## Building
 
 * Prerequisites (Ubuntu/Debian):
-`sudo apt-get install nodejs npm ; sudo npm install gmetric`
+`sudo apt-get install nodejs npm ; sudo npm install -g gmetric`
 
 ## Using
 
