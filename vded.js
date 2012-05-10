@@ -31,6 +31,12 @@ writePid();
 // Load data, if there is any, from state file
 deserializeFromFile();
 
+// Initialize gmetric sending, if enabled
+var gmetric;
+if (ganglia_enabled) {
+	gmetric = new gm.gmetric( ganglia_host, ganglia_port, ganglia_spoof != null ? ganglia_spoof : null );
+}
+
 http.createServer(function(req,resp) {
 	var uparse = url.parse(req.url, true);
 	var path = uparse.pathname;
@@ -199,7 +205,10 @@ http.createServer(function(req,resp) {
 var flushProcess = setInterval(function () {
 	// Save state to file.
 	console.log("Serialize to file");
+	var timer_begin = Date.now();
 	serializeToFile( );
+	var timer_end = Date.now();
+	console.log("FLUSH|Completed in " + ( timer_end - timer_begin ) + " ms");
 }, flushInterval);
 
 // Start up purge process
@@ -210,6 +219,8 @@ var purgeProcess = setInterval(function () {
 		// Skip purging if we have no limit
 		return;
 	}
+
+	var timer_begin = Date.now();
 
 	for (var i in vectors) {
 		var vectorvalues = Object.keys(vectors[i].values).length;
@@ -230,6 +241,9 @@ var purgeProcess = setInterval(function () {
 			delete vectors[i].values[ts];
 		}
 	}
+
+	var timer_end = Date.now();
+	console.log("PURGE|Completed in " + ( timer_end - timer_begin ) + " ms");
 }, purgeInterval);
 
 function onExit() {
@@ -242,6 +256,13 @@ function onExit() {
 	if (flushProcess != null) {
 		console.log("Remove flush process");
 		clearInterval( flushProcess );
+	}
+
+	if (ganglia_enabled) {
+		try {
+			gmetric.close();
+		} catch (e) {
+		}
 	}
 
 	// Serialize to file on shutdown
@@ -359,6 +380,7 @@ function createResponse(resp, status, obj) {
 }
 
 function buildVectorResponse(key) {
+	var timer_begin = Date.now();
 	var v = vectors[key];
 	if (Object.keys(v.values).length == 1) {
 		// Only one, return with no calculation
@@ -412,6 +434,8 @@ function buildVectorResponse(key) {
 		// Standard "per minute" calculation
 		v['per_minute'] = (ts_diff < 30) ? 0 : v['last_diff'] / ( ts_diff / 60 );
 	}
+	var timer_end = Date.now();
+	console.log("RESP|Completed in " + ( timer_end - timer_begin ) + " ms");
 	return v;
 }
 
@@ -498,8 +522,7 @@ function submitToGanglia( host, name, vector, value ) {
 	//});
 
 	// Native gmetric support
-	var g = new gm.gmetric( ganglia_host, ganglia_port, ganglia_spoof != null ? ganglia_spoof : null );
-	g.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
+	gmetric.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
 }
 
 console.log("VDED listening on port " + server_port);
