@@ -477,7 +477,7 @@ function serializeToFile( ) {
 		obj.vectors = vectors;
 		obj.switches = switches;
 		var out = JSON.stringify( obj );
-		console.log( out );
+		//console.log( out );
 		fs.writeFileSync( statefile, out, 'utf8' );
 	}
 }
@@ -487,7 +487,7 @@ function deserializeFromFile() {
 		if (statefile != '' && fs.lstatSync(statefile)) {
 			console.log("Retrieving state from " + statefile);
 			var raw = fs.readFileSync( statefile, 'utf8' );
-			console.log(raw);
+			//console.log( raw );
 			var obj = JSON.parse( raw );
 			vectors = obj['vectors'] != null ? obj['vectors'] : { };
 			switches = obj['switches'] != null ? obj['switches'] : { };
