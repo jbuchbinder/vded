@@ -5,6 +5,8 @@
 
 VERSION=$(shell cat VERSION)
 
+dist: tar
+
 tar:
 	rm -rf vded-$(VERSION)
 	git clone git://github.com/jbuchbinder/vded.git vded-$(VERSION)
