@@ -502,27 +502,29 @@ function submitToGanglia( host, name, vector, value ) {
 	if (!ganglia_enabled) { return; }
 	console.log("Send value " + value);
 
+	/*
 	// Hack to send using gmetric binary until node-gmetric works properly
-	//var cmd = "/usr/bin/gmetric " + 
-	//	" -g '" + ( vector.group != null ? vector.group : 'vectors' ) "' " +
-	//	" -n '" + name + "' " +
-	//	" -v '" + value + "' " +
-	//	" -u '" + ( vector.units == null ? 'count' : vector.units ) + "' " +
-	//	" -x 300 -t uint32 " +
-	//	( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
-	//console.log("GMETRIC CMD: " + cmd);
-	//exec( cmd, function (error, stdout, stderr) {
-	//	if (error != null) {
-	//		console.log("GMETRIC error  : " + error);
-	//	}
-	//	if (stdout != null || stderr != null) {
-	//		console.log("GMETRIC stdout : " + stdout);
-	//		console.log("GMETRIC stderr : " + stderr);
-	//	}
-	//});
+	var cmd = "/usr/bin/gmetric " + 
+		" -g '" + ( vector.group != null ? vector.group : 'vectors' ) "' " +
+		" -n '" + name + "' " +
+		" -v '" + value + "' " +
+		" -u '" + ( vector.units == null ? 'count' : vector.units ) + "' " +
+		" -x 300 -t uint32 " +
+		( ganglia_spoof != null ? " -S '" + ganglia_spoof + "'" : "" );
+	console.log("GMETRIC CMD: " + cmd);
+	exec( cmd, function (error, stdout, stderr) {
+		if (error != null) {
+			console.log("GMETRIC error  : " + error);
+		}
+		if (stdout != null || stderr != null) {
+			console.log("GMETRIC stdout : " + stdout);
+			console.log("GMETRIC stderr : " + stderr);
+		}
+	});
+	*/
 
 	// Native gmetric support
-	gmetric.sendMetric( host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
+	gmetric.sendMetric( ganglia_spoof != null ? ganglia_spoof : host, name, value, vector.units == null ? 'count' : vector.units, gm.VALUE_INT, gm.SLOPE_BOTH, 300, 300, vector.group == null ? 'vectors' : vector.group );
 }
 
 console.log("VDED listening on port " + server_port);
