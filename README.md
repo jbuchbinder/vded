@@ -1,5 +1,7 @@
 # VECTOR DELTA ENGINE DAEMON (VDED)
 
+![VDED](https://github.com/jbuchbinder/vded/raw/master/vded_logo.png)
+
 * Homepage: https://github.com/jbuchbinder/vded
 * Twitter: [@jbuchbinder](https://twitter.com/jbuchbinder)
 
