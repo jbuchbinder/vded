@@ -5,12 +5,16 @@
 
 VERSION=$(shell cat VERSION)
 
-rpm:
+dist: tar
+
+tar:
 	rm -rf vded-$(VERSION)
 	git clone git://github.com/jbuchbinder/vded.git vded-$(VERSION)
 	rm vded-$(VERSION)/.git -rf
 	cat vded-$(VERSION)/vded.spec.in | sed -e "s/@VERSION@/$(VERSION)/g" > vded-$(VERSION)/vded.spec
 	tar czvf vded-$(VERSION).tar.gz vded-$(VERSION)
+
+rpm: tar
 	sudo rpmbuild -ta vded-$(VERSION).tar.gz
 	rm -rf vded-$(VERSION)
 
