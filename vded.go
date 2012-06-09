@@ -1,12 +1,17 @@
+// VDED - Vector Delta Engine Daemon
+// https://github.com/jbuchbinder/vded
+//
+// vim: tabstop=4:softtabstop=4:shiftwidth=4:noexpandtab
+
 package main
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	//"github.com/jbuchbinder/go-gmetric/gmetric"
+	"github.com/jbuchbinder/go-gmetric/gmetric"
 	"log"
-	//"net"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -20,6 +25,8 @@ var (
 	gport      = flag.Int("gport", 8649, "ganglia port")
 	spoof      = flag.String("gspoof", "", "ganglia default spoof")
 	maxEntries = flag.Int("max", 300, "maximum number of entries to retain")
+	gIP, _     = net.ResolveIPAddr("ip4", *ghost)
+	gm         = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
 )
 
 type Vector struct {
@@ -111,6 +118,11 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 // Helper functions
 
 func buildVectorKey(key string) {
+	// Adjust values
+	// TODO: IMPLEMENT: XXX
+
+	// Submit metric
+	go gm.SendMetric(vectors[key].name, fmt.Sprint(vectors[key].latestValue), gmetric.VALUE_UNSIGNED_INT, vectors[key].units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].group)
 }
 
 func getKeyName(hostName, vectorName string) string {
@@ -134,7 +146,7 @@ func serializeToFile() {
 
 	}
 
-	log.Println(v)
+	log.Println(string(v))
 	// Output:
 	// "{\"vectors\":" + v + ",\"switches\":" + s + "}"
 
@@ -144,7 +156,10 @@ func serializeToFile() {
 // Main body
 
 func main() {
+	log.Printf("[VDED] Initializing VDED server")
 	vectors = make(map[string]Vector)
+
+	// Set up gmetric connection
 
 	// Thread to purge old values
 	purgeThread := func() {
@@ -172,11 +187,16 @@ func main() {
 
 	// Thread to flush state to disk
 	flushThread := func() {
-		serializeToFile()
+		log.Println("[FLUSH] Thread started")
+		for {
+			time.Sleep(1800 * time.Second)
+			serializeToFile()
+		}
 	}
 	go flushThread()
 
 	// Spin up HTTP server for requests
+	log.Printf("[VDED] Starting HTTP service on :%d", *port)
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
 		ReadTimeout:    5 * time.Second,
