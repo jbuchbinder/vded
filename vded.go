@@ -13,6 +13,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	//"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -47,8 +49,12 @@ type Vector struct {
 	values       map[time.Time]uint64
 }
 
+type SaveState struct {
+	vectors map[string]*Vector
+}
+
 // Store of vectors
-var vectors map[string]Vector
+var vectors map[string]*Vector
 
 func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "[\"This is a test\",{\"a\":1,\"b\":2}]")
@@ -85,7 +91,7 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 		vectors[vectorKey].mutex.Unlock()
 	} else {
 		// Create new vector
-		vectors[vectorKey] = Vector{
+		vectors[vectorKey] = &Vector{
 			host:         pHost,
 			name:         pVector,
 			submitMetric: pSubmitMetric,
@@ -104,6 +110,7 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		vectors[vectorKey].mutex.Lock()
 		vectors[vectorKey].values[ts] = value
+		vectors[vectorKey].latestValue = value
 		vectors[vectorKey].mutex.Unlock()
 	}
 
@@ -119,6 +126,47 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 
 func buildVectorKey(key string) {
 	// Adjust values
+	vectors[key].mutex.Lock()
+
+	if len(vectors[key].values) == 1 {
+		vectors[key].lastDiff = vectors[key].latestValue
+		vectors[key].perMinute = 0
+		vectors[key].per5Minutes = 0
+		vectors[key].per10Minutes = 0
+		vectors[key].per30Minutes = 0
+		vectors[key].perHour = 0
+	} else {
+		var keys []time.Time
+		var i int
+		for k, _ := range vectors[key].values {
+			keys[i] = k
+			i++
+		}
+		//sort.Sort(&keys) // can't sort on time.Time
+		max1 := keys[i-1]
+		max2 := keys[i-2]
+		tsDiff := max1.Unix() - max2.Unix()
+		if tsDiff < 0 {
+			tsDiff = -tsDiff
+		}
+		if vectors[key].values[max1] < vectors[key].values[max2] {
+			// Deal with vector value resets, not perfect, but good enough
+			vectors[key].lastDiff = vectors[key].values[max1]
+		} else {
+			vectors[key].lastDiff = vectors[key].values[max1] - vectors[key].values[max2]
+		}
+
+		// TODO: FIXME: Track back in history over time periods
+
+		if tsDiff < 30 {
+			vectors[key].perMinute = 0
+		} else {
+			vectors[key].perMinute = float64(vectors[key].lastDiff / (uint64(tsDiff) / 60))
+		}
+	}
+
+	vectors[key].mutex.Unlock()
+
 	// TODO: IMPLEMENT: XXX
 
 	// Submit metric
@@ -139,14 +187,51 @@ func parseBoolean(v string, defaultValue bool) bool {
 	return false
 }
 
+func readState() {
+	file, err := os.Open(*state)
+	if err != nil {
+		log.Print(err)
+	}
+	// TODO: FIXME: Should not be hardcoding 10M limit here, should be
+	// figuring this out from the size of the file from which we are
+	// reading data.
+	data := make([]byte, 1024*1024*16)
+	count, err := file.Read(data)
+	log.Printf("Read %d bytes from statefile %s", count, *state)
+	if count == 0 {
+		// No data read, let's just skip anything else, no fatal errors
+		return
+	}
+	if err != nil {
+		file.Close()
+		log.Fatal(err)
+	}
+	file.Close()
+
+	// Attempt to unmarshal the json data
+	var savestate SaveState
+	umerr := json.Unmarshal(data, &savestate)
+	if umerr != nil {
+		log.Print("Could not read data from savestate")
+	} else {
+		vectors = savestate.vectors
+	}
+
+}
+
 func serializeToFile() {
 	log.Println("serializeToFile()")
-	v, err := json.Marshal(vectors)
+
+	savestate := &SaveState{
+		vectors: vectors,
+	}
+
+	s, err := json.Marshal(savestate)
 	if err != nil {
 
 	}
 
-	log.Println(string(v))
+	os.Stdout.Write(s)
 	// Output:
 	// "{\"vectors\":" + v + ",\"switches\":" + s + "}"
 
@@ -157,7 +242,10 @@ func serializeToFile() {
 
 func main() {
 	log.Printf("[VDED] Initializing VDED server")
-	vectors = make(map[string]Vector)
+	vectors = make(map[string]*Vector)
+
+	// Read state
+	readState()
 
 	// Set up gmetric connection
 
@@ -189,8 +277,8 @@ func main() {
 	flushThread := func() {
 		log.Println("[FLUSH] Thread started")
 		for {
-			time.Sleep(1800 * time.Second)
 			serializeToFile()
+			time.Sleep(1800 * time.Second)
 		}
 	}
 	go flushThread()
