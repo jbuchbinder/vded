@@ -14,7 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	//"sort"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -32,25 +32,25 @@ var (
 )
 
 type Vector struct {
-	host         string
-	name         string
-	spoof        bool
-	submitMetric bool
-	units        string
-	group        string
-	latestValue  uint64
-	lastDiff     uint64
-	perMinute    float64
-	per5Minutes  float64
-	per10Minutes float64
-	per30Minutes float64
-	perHour      float64
-	mutex        *sync.RWMutex
-	values       map[time.Time]uint64
+	Host         string            `json:"host"`
+	Name         string            `json:"name"`
+	Spoof        bool              `json:"spoof"`
+	SubmitMetric bool              `json:"submit_metric"`
+	Units        string            `json:"units"`
+	Group        string            `json:"group"`
+	LatestValue  uint64            `json:"latest_value"`
+	LastDiff     uint64            `json:"last_diff"`
+	PerMinute    float64           `json:"per_minute"`
+	Per5Minutes  float64           `json:"per_5min"`
+	Per10Minutes float64           `json:"per_10min"`
+	Per30Minutes float64           `json:"per_30min"`
+	PerHour      float64           `json:"per_hour"`
+	Mutex        *sync.RWMutex     `json:"-"`
+	Values       map[string]uint64 `json:"values"`
 }
 
 type SaveState struct {
-	vectors map[string]*Vector
+	Vectors map[string]*Vector `json:"vectors"`
 }
 
 // Store of vectors
@@ -58,6 +58,32 @@ var vectors map[string]*Vector
 
 func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "[\"This is a test\",{\"a\":1,\"b\":2}]")
+}
+
+func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
+	//log.Printf("httpVectorDumpHandler()")
+
+	pHost := r.FormValue("host")
+	pVector := r.FormValue("vector")
+
+	if pHost == "" || pVector == "" {
+		log.Printf("Host and/or vector were not defined")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	vectorKey := getKeyName(pHost, pVector)
+
+	log.Printf("Received dump vector request for %s", vectorKey)
+
+	s, err := json.Marshal(vectors[vectorKey])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(s)
 }
 
 func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
@@ -77,41 +103,39 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse non string values
-	rawTs, _ := strconv.ParseInt(pTs, 10, 64)
-	ts := time.Unix(rawTs, 0)
 	value, _ := strconv.ParseUint(pValue, 10, 64)
 	vectorKey := getKeyName(pHost, pVector)
 
-	log.Println("Received vector request for " + vectorKey)
+	log.Printf("Received vector request for %s", vectorKey)
 
 	if _, ok := vectors[vectorKey]; ok {
 		// Key exists
-		vectors[vectorKey].mutex.Lock()
-		vectors[vectorKey].values[ts] = value
-		vectors[vectorKey].mutex.Unlock()
+		vectors[vectorKey].Mutex.Lock()
+		vectors[vectorKey].Values[pTs] = value
+		vectors[vectorKey].LatestValue = value
+		vectors[vectorKey].Mutex.Unlock()
 	} else {
 		// Create new vector
 		vectors[vectorKey] = &Vector{
-			host:         pHost,
-			name:         pVector,
-			submitMetric: pSubmitMetric,
-			spoof:        pSpoof,
-			units:        pUnits,
-			group:        pGroup,
-			latestValue:  value,
-			lastDiff:     0,
-			perMinute:    0,
-			per5Minutes:  0,
-			per10Minutes: 0,
-			per30Minutes: 0,
-			perHour:      0,
-			mutex:        new(sync.RWMutex),
-			values:       make(map[time.Time]uint64),
+			Host:         pHost,
+			Name:         pVector,
+			SubmitMetric: pSubmitMetric,
+			Spoof:        pSpoof,
+			Units:        pUnits,
+			Group:        pGroup,
+			LatestValue:  value,
+			LastDiff:     0,
+			PerMinute:    0,
+			Per5Minutes:  0,
+			Per10Minutes: 0,
+			Per30Minutes: 0,
+			PerHour:      0,
+			Mutex:        new(sync.RWMutex),
+			Values:       make(map[string]uint64),
 		}
-		vectors[vectorKey].mutex.Lock()
-		vectors[vectorKey].values[ts] = value
-		vectors[vectorKey].latestValue = value
-		vectors[vectorKey].mutex.Unlock()
+		vectors[vectorKey].Mutex.Lock()
+		vectors[vectorKey].Values[pTs] = value
+		vectors[vectorKey].Mutex.Unlock()
 	}
 
 	// Handle building values, async
@@ -126,51 +150,56 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 
 func buildVectorKey(key string) {
 	// Adjust values
-	vectors[key].mutex.Lock()
+	vectors[key].Mutex.Lock()
 
-	if len(vectors[key].values) == 1 {
-		vectors[key].lastDiff = vectors[key].latestValue
-		vectors[key].perMinute = 0
-		vectors[key].per5Minutes = 0
-		vectors[key].per10Minutes = 0
-		vectors[key].per30Minutes = 0
-		vectors[key].perHour = 0
+	//log.Printf("buildVectorKey len = %d", len(vectors[key].Values))
+	if len(vectors[key].Values) <= 1 {
+		vectors[key].LastDiff = vectors[key].LatestValue
+		vectors[key].PerMinute = 0
+		vectors[key].Per5Minutes = 0
+		vectors[key].Per10Minutes = 0
+		vectors[key].Per30Minutes = 0
+		vectors[key].PerHour = 0
 	} else {
-		var keys []time.Time
-		var i int
-		for k, _ := range vectors[key].values {
+		keys := make([]string, len(vectors[key].Values))
+		i := 0
+		for k, _ := range vectors[key].Values {
 			keys[i] = k
 			i++
 		}
-		//sort.Sort(&keys) // can't sort on time.Time
-		max1 := keys[i-1]
-		max2 := keys[i-2]
-		tsDiff := max1.Unix() - max2.Unix()
+		if !sort.StringsAreSorted(keys) {
+			//sort.Sort(&keys)
+		}
+		max1 := keys[i - 1]
+		max1int, _ := strconv.ParseUint(max1, 10, 64)
+		max2 := keys[i - 2]
+		max2int, _ := strconv.ParseUint(max2, 10, 64)
+		tsDiff := max1int - max2int
 		if tsDiff < 0 {
 			tsDiff = -tsDiff
 		}
-		if vectors[key].values[max1] < vectors[key].values[max2] {
+		if vectors[key].Values[max1] < vectors[key].Values[max2] {
 			// Deal with vector value resets, not perfect, but good enough
-			vectors[key].lastDiff = vectors[key].values[max1]
+			vectors[key].LastDiff = vectors[key].Values[max1]
 		} else {
-			vectors[key].lastDiff = vectors[key].values[max1] - vectors[key].values[max2]
+			vectors[key].LastDiff = vectors[key].Values[max1] - vectors[key].Values[max2]
 		}
 
 		// TODO: FIXME: Track back in history over time periods
 
 		if tsDiff < 30 {
-			vectors[key].perMinute = 0
+			vectors[key].PerMinute = 0
 		} else {
-			vectors[key].perMinute = float64(vectors[key].lastDiff / (uint64(tsDiff) / 60))
+			vectors[key].PerMinute = float64(vectors[key].LastDiff / (uint64(tsDiff) / 60))
 		}
 	}
 
-	vectors[key].mutex.Unlock()
+	// TODO: IMPLEMENT: XXX:
 
-	// TODO: IMPLEMENT: XXX
+	vectors[key].Mutex.Unlock()
 
 	// Submit metric
-	go gm.SendMetric(vectors[key].name, fmt.Sprint(vectors[key].latestValue), gmetric.VALUE_UNSIGNED_INT, vectors[key].units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].group)
+	go gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LatestValue), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 }
 
 func getKeyName(hostName, vectorName string) string {
@@ -214,7 +243,7 @@ func readState() {
 	if umerr != nil {
 		log.Print("Could not read data from savestate")
 	} else {
-		vectors = savestate.vectors
+		vectors = savestate.Vectors
 	}
 
 }
@@ -223,19 +252,19 @@ func serializeToFile() {
 	log.Println("serializeToFile()")
 
 	savestate := &SaveState{
-		vectors: vectors,
+		Vectors: vectors,
 	}
 
 	s, err := json.Marshal(savestate)
 	if err != nil {
-
+		log.Println(err.Error())
 	}
 
 	os.Stdout.Write(s)
 	// Output:
 	// "{\"vectors\":" + v + ",\"switches\":" + s + "}"
 
-	// TODO: implement
+	// TODO: implement writing to state file
 }
 
 // Main body
@@ -255,19 +284,19 @@ func main() {
 		for {
 			time.Sleep(300 * time.Second)
 			for k, _ := range vectors {
-				vectors[k].mutex.Lock()
-				if len(vectors[k].values) > *maxEntries {
-					targetPurge := len(vectors[k].values) - *maxEntries
+				vectors[k].Mutex.Lock()
+				if len(vectors[k].Values) > *maxEntries {
+					targetPurge := len(vectors[k].Values) - *maxEntries
 					purgeCount := 0
-					for mk, _ := range vectors[k].values {
+					for mk, _ := range vectors[k].Values {
 						if uint64(purgeCount) < uint64(targetPurge) {
 							log.Println("[PURGE] %s : %d", k, mk)
-							delete(vectors[k].values, mk)
+							delete(vectors[k].Values, mk)
 							purgeCount++
 						}
 					}
 				}
-				vectors[k].mutex.Unlock()
+				vectors[k].Mutex.Unlock()
 			}
 		}
 	}
@@ -293,5 +322,6 @@ func main() {
 	}
 	http.HandleFunc("/test", httpTestHandler)
 	http.HandleFunc("/vector", httpVectorHandler)
+	http.HandleFunc("/dumpvector", httpVectorDumpHandler)
 	log.Fatal(httpServer.ListenAndServe())
 }
