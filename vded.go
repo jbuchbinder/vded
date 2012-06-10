@@ -49,12 +49,22 @@ type Vector struct {
 	Values       map[string]uint64 `json:"values"`
 }
 
+type Switch struct {
+	Host        string          `json:"host"`
+	Name        string          `json:"name"`
+	LatestValue bool            `json:"latest_value"`
+	Mutex       *sync.RWMutex   `json:"-"`
+	Values      map[string]bool `json:"values"`
+}
+
 type SaveState struct {
-	Vectors map[string]*Vector `json:"vectors"`
+	Vectors  map[string]*Vector `json:"vectors"`
+	Switches map[string]*Switch `json:"switches"`
 }
 
 // Store of vectors
 var vectors map[string]*Vector
+var switches map[string]*Switch
 
 func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "[\"This is a test\",{\"a\":1,\"b\":2}]")
@@ -84,6 +94,72 @@ func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(s)
+}
+
+func httpSwitchHandler(w http.ResponseWriter, r *http.Request) {
+	// Grab all proper variables
+	pAction := r.FormValue("action")
+	pHost := r.FormValue("host")
+	pSwitch := r.FormValue("switch")
+	pValue := r.FormValue("value")
+	pTs := r.FormValue("ts")
+
+	if pAction == "" || pHost == "" || pSwitch == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switchKey := getKeyName(pHost, pSwitch)
+
+	switch {
+	case pAction == "get":
+		{
+			if _, ok := switches[switchKey]; ok {
+				if switches[switchKey].LatestValue {
+					fmt.Fprintf(w, "%s", "true")
+				} else {
+					fmt.Fprintf(w, "%s", "false")
+				}
+				return
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+	case pAction == "set":
+		{
+			value := parseBoolean(pValue, false)
+			if _, ok := switches[switchKey]; ok {
+				if pTs == "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				switches[switchKey].Mutex.Lock()
+				switches[switchKey].Values[pTs] = value
+				switches[switchKey].LatestValue = value
+				switches[switchKey].Mutex.Unlock()
+			} else {
+				// Create new vector
+				switches[switchKey] = &Switch{
+					Host:        pHost,
+					Name:        pSwitch,
+					LatestValue: value,
+					Mutex:       new(sync.RWMutex),
+					Values:      make(map[string]bool),
+				}
+				switches[switchKey].Mutex.Lock()
+				switches[switchKey].Values[pTs] = value
+				switches[switchKey].Mutex.Unlock()
+			}
+		}
+	default:
+		{
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	// TODO: FIXME: XXX: Need to implement switch handling
 }
 
 func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
@@ -170,9 +246,9 @@ func buildVectorKey(key string) {
 		if !sort.StringsAreSorted(keys) {
 			//sort.Sort(&keys)
 		}
-		max1 := keys[i - 1]
+		max1 := keys[i-1]
 		max1int, _ := strconv.ParseUint(max1, 10, 64)
-		max2 := keys[i - 2]
+		max2 := keys[i-2]
 		max2int, _ := strconv.ParseUint(max2, 10, 64)
 		tsDiff := max1int - max2int
 		if tsDiff < 0 {
@@ -252,7 +328,8 @@ func serializeToFile() {
 	log.Println("serializeToFile()")
 
 	savestate := &SaveState{
-		Vectors: vectors,
+		Vectors:  vectors,
+		Switches: switches,
 	}
 
 	s, err := json.Marshal(savestate)
@@ -261,10 +338,42 @@ func serializeToFile() {
 	}
 
 	os.Stdout.Write(s)
-	// Output:
-	// "{\"vectors\":" + v + ",\"switches\":" + s + "}"
 
 	// TODO: implement writing to state file
+}
+
+func handleUdpClient(conn *net.UDPConn) {
+	var buf []byte
+	buf = make([]byte, 512)
+	_, _, err := conn.ReadFromUDP(buf[0:])
+	if err != nil {
+		return
+	}
+
+	log.Printf(string(buf))
+
+	data := make(map[string]string)
+	jsonerr := json.Unmarshal(buf, &data)
+	if jsonerr != nil {
+		log.Println("[UDP] error:", err)
+		return
+	}
+
+	// TODO: FIXME: XXX: Handle UDP data
+}
+
+func udpServer() {
+	udpaddr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf(":%d", *port))
+	udpconn, udperr := net.ListenUDP("udp", udpaddr)
+
+	if udperr != nil {
+		log.Printf(udperr.Error())
+		return
+	} else {
+		for {
+			handleUdpClient(udpconn)
+		}
+	}
 }
 
 // Main body
@@ -272,6 +381,7 @@ func serializeToFile() {
 func main() {
 	log.Printf("[VDED] Initializing VDED server")
 	vectors = make(map[string]*Vector)
+	switches = make(map[string]*Switch)
 
 	// Read state
 	readState()
@@ -298,6 +408,21 @@ func main() {
 				}
 				vectors[k].Mutex.Unlock()
 			}
+			for sk, _ := range switches {
+				switches[sk].Mutex.Lock()
+				if len(switches[sk].Values) > *maxEntries {
+					targetPurge := len(switches[sk].Values) - *maxEntries
+					purgeCount := 0
+					for mk, _ := range switches[sk].Values {
+						if uint64(purgeCount) < uint64(targetPurge) {
+							log.Println("[PURGE] %s : %d", sk, mk)
+							delete(switches[sk].Values, mk)
+							purgeCount++
+						}
+					}
+				}
+				switches[sk].Mutex.Unlock()
+			}
 		}
 	}
 	go purgeThread()
@@ -312,6 +437,10 @@ func main() {
 	}
 	go flushThread()
 
+	// Spin up UDP server for requests
+	log.Printf("[VDED] Starting UDP service on :%d", *port)
+	go udpServer()
+
 	// Spin up HTTP server for requests
 	log.Printf("[VDED] Starting HTTP service on :%d", *port)
 	httpServer := &http.Server{
@@ -322,6 +451,7 @@ func main() {
 	}
 	http.HandleFunc("/test", httpTestHandler)
 	http.HandleFunc("/vector", httpVectorHandler)
+	http.HandleFunc("/switch", httpSwitchHandler)
 	http.HandleFunc("/dumpvector", httpVectorDumpHandler)
 	log.Fatal(httpServer.ListenAndServe())
 }
