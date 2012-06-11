@@ -1,0 +1,3 @@
+[submodule "go-gmetric"]
+	path = go-gmetric
+	url = git://github.com/jbuchbinder/go-gmetric.git

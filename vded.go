@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/jbuchbinder/go-gmetric/gmetric"
+	"./go-gmetric/gmetric"
 	"log"
 	"net"
 	"net/http"
