@@ -420,6 +420,7 @@ func udpServer() {
 // Main body
 
 func main() {
+	gm.SetLogger(log)
 	flag.Parse()
 
 	log.Info("Initializing VDED server")
