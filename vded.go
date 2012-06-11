@@ -6,11 +6,11 @@
 package main
 
 import (
+	"./go-gmetric/gmetric"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"./go-gmetric/gmetric"
-	"log"
+	"log/syslog"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +29,7 @@ var (
 	maxEntries = flag.Int("max", 300, "maximum number of entries to retain")
 	gIP, _     = net.ResolveIPAddr("ip4", *ghost)
 	gm         = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
+	log, _     = syslog.New(syslog.LOG_INFO, "vded")
 )
 
 type Vector struct {
@@ -77,14 +78,14 @@ func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
 	pVector := r.FormValue("vector")
 
 	if pHost == "" || pVector == "" {
-		log.Printf("Host and/or vector were not defined")
+		log.Warning("Host and/or vector were not defined")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	vectorKey := getKeyName(pHost, pVector)
 
-	log.Printf("Received dump vector request for %s", vectorKey)
+	log.Debug(fmt.Sprintf("Received dump vector request for %s", vectorKey))
 
 	s, err := json.Marshal(vectors[vectorKey])
 	if err != nil {
@@ -182,7 +183,7 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 	value, _ := strconv.ParseUint(pValue, 10, 64)
 	vectorKey := getKeyName(pHost, pVector)
 
-	log.Printf("Received vector request for %s", vectorKey)
+	log.Debug(fmt.Sprintf("Received vector request for %s", vectorKey))
 
 	if _, ok := vectors[vectorKey]; ok {
 		// Key exists
@@ -295,21 +296,21 @@ func parseBoolean(v string, defaultValue bool) bool {
 func readState() {
 	file, err := os.Open(*state)
 	if err != nil {
-		log.Print(err)
+		log.Err(err.Error())
 	}
 	// TODO: FIXME: Should not be hardcoding 10M limit here, should be
 	// figuring this out from the size of the file from which we are
 	// reading data.
 	data := make([]byte, 1024*1024*16)
 	count, err := file.Read(data)
-	log.Printf("Read %d bytes from statefile %s", count, *state)
+	log.Debug(fmt.Sprintf("Read %d bytes from statefile %s", count, *state))
 	if count == 0 {
 		// No data read, let's just skip anything else, no fatal errors
 		return
 	}
 	if err != nil {
 		file.Close()
-		log.Fatal(err)
+		log.Err(err.Error())
 	}
 	file.Close()
 
@@ -317,7 +318,7 @@ func readState() {
 	var savestate SaveState
 	umerr := json.Unmarshal(data, &savestate)
 	if umerr != nil {
-		log.Print("Could not read data from savestate")
+		log.Err("Could not read data from savestate")
 	} else {
 		vectors = savestate.Vectors
 	}
@@ -325,7 +326,7 @@ func readState() {
 }
 
 func serializeToFile() {
-	log.Println("serializeToFile()")
+	log.Info("serializeToFile()")
 
 	savestate := &SaveState{
 		Vectors:  vectors,
@@ -334,10 +335,10 @@ func serializeToFile() {
 
 	s, err := json.Marshal(savestate)
 	if err != nil {
-		log.Println(err.Error())
+		log.Err(err.Error())
 	}
 
-	os.Stdout.Write(s)
+	log.Debug(string(s))
 
 	// TODO: implement writing to state file
 }
@@ -350,12 +351,12 @@ func handleUdpClient(conn *net.UDPConn) {
 		return
 	}
 
-	log.Printf(string(buf))
+	log.Info(string(buf))
 
 	data := make(map[string]string)
 	jsonerr := json.Unmarshal(buf, &data)
 	if jsonerr != nil {
-		log.Println("[UDP] error:", err)
+		log.Err(fmt.Sprintf("[UDP] error:", err))
 		return
 	}
 
@@ -367,7 +368,7 @@ func udpServer() {
 	udpconn, udperr := net.ListenUDP("udp", udpaddr)
 
 	if udperr != nil {
-		log.Printf(udperr.Error())
+		log.Err(udperr.Error())
 		return
 	} else {
 		for {
@@ -379,7 +380,7 @@ func udpServer() {
 // Main body
 
 func main() {
-	log.Printf("[VDED] Initializing VDED server")
+	log.Info("Initializing VDED server")
 	vectors = make(map[string]*Vector)
 	switches = make(map[string]*Switch)
 
@@ -390,7 +391,7 @@ func main() {
 
 	// Thread to purge old values
 	purgeThread := func() {
-		log.Println("[PURGE] Thread started")
+		log.Info("[PURGE] Thread started")
 		for {
 			time.Sleep(300 * time.Second)
 			for k, _ := range vectors {
@@ -400,7 +401,7 @@ func main() {
 					purgeCount := 0
 					for mk, _ := range vectors[k].Values {
 						if uint64(purgeCount) < uint64(targetPurge) {
-							log.Println("[PURGE] %s : %d", k, mk)
+							log.Debug(fmt.Sprintf("[PURGE] %s : %d", k, mk))
 							delete(vectors[k].Values, mk)
 							purgeCount++
 						}
@@ -415,7 +416,7 @@ func main() {
 					purgeCount := 0
 					for mk, _ := range switches[sk].Values {
 						if uint64(purgeCount) < uint64(targetPurge) {
-							log.Println("[PURGE] %s : %d", sk, mk)
+							log.Debug(fmt.Sprintf("[PURGE] %s : %d", sk, mk))
 							delete(switches[sk].Values, mk)
 							purgeCount++
 						}
@@ -429,7 +430,7 @@ func main() {
 
 	// Thread to flush state to disk
 	flushThread := func() {
-		log.Println("[FLUSH] Thread started")
+		log.Info("[FLUSH] Thread started")
 		for {
 			serializeToFile()
 			time.Sleep(1800 * time.Second)
@@ -438,11 +439,11 @@ func main() {
 	go flushThread()
 
 	// Spin up UDP server for requests
-	log.Printf("[VDED] Starting UDP service on :%d", *port)
+	log.Info(fmt.Sprintf("[VDED] Starting UDP service on :%d", *port))
 	go udpServer()
 
 	// Spin up HTTP server for requests
-	log.Printf("[VDED] Starting HTTP service on :%d", *port)
+	log.Info(fmt.Sprintf("[VDED] Starting HTTP service on :%d", *port))
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
 		ReadTimeout:    5 * time.Second,
@@ -453,5 +454,5 @@ func main() {
 	http.HandleFunc("/vector", httpVectorHandler)
 	http.HandleFunc("/switch", httpSwitchHandler)
 	http.HandleFunc("/dumpvector", httpVectorDumpHandler)
-	log.Fatal(httpServer.ListenAndServe())
+	httpServer.ListenAndServe()
 }
