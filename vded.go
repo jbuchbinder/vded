@@ -21,15 +21,16 @@ import (
 )
 
 var (
-	port       = flag.Int("port", 48333, "port to listen for requests")
-	state      = flag.String("state", "/var/lib/vded/state.json", "path for save state file")
-	ghost      = flag.String("ghost", "localhost", "ganglia host")
-	gport      = flag.Int("gport", 8649, "ganglia port")
-	spoof      = flag.String("gspoof", "", "ganglia default spoof")
-	maxEntries = flag.Int("max", 300, "maximum number of entries to retain")
-	gIP, _     = net.ResolveIPAddr("ip4", *ghost)
-	gm         = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
-	log, _     = syslog.New(syslog.LOG_INFO, "vded")
+	port          = flag.Int("port", 48333, "port to listen for requests")
+	state         = flag.String("state", "/var/lib/vded/state.json", "path for save state file")
+	ghost         = flag.String("ghost", "localhost", "ganglia host")
+	gport         = flag.Int("gport", 8649, "ganglia port")
+	spoof         = flag.String("gspoof", "", "ganglia default spoof")
+	maxEntries    = flag.Int("max", 300, "maximum number of entries to retain")
+	gIP, _        = net.ResolveIPAddr("ip4", *ghost)
+	gm            = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
+	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
+	serializeLock *sync.RWMutex
 )
 
 type Vector struct {
@@ -69,6 +70,33 @@ var switches map[string]*Switch
 
 func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "[\"This is a test\",{\"a\":1,\"b\":2}]")
+}
+
+func httpControlHandler(w http.ResponseWriter, r *http.Request) {
+	pAction := r.FormValue("action")
+
+	if pAction == "" {
+		log.Warning("action was not defined")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch {
+
+	case pAction == "serialize":
+		{
+			go serializeToFile()
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "%s", "OK: started serialize job")
+		}
+
+	default:
+		{
+			fmt.Fprintf(w, "%s", "BAD: invalid action")
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
+	}
 }
 
 func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
@@ -229,7 +257,7 @@ func buildVectorKey(key string) {
 	// Adjust values
 	vectors[key].Mutex.Lock()
 
-	//log.Printf("buildVectorKey len = %d", len(vectors[key].Values))
+	log.Info(fmt.Sprintf("buildVectorKey len = %d", len(vectors[key].Values)))
 	if len(vectors[key].Values) <= 1 {
 		vectors[key].LastDiff = vectors[key].LatestValue
 		vectors[key].PerMinute = 0
@@ -245,7 +273,7 @@ func buildVectorKey(key string) {
 			i++
 		}
 		if !sort.StringsAreSorted(keys) {
-			//sort.Sort(&keys)
+			sort.Strings(keys)
 		}
 		max1 := keys[i-1]
 		max1int, _ := strconv.ParseUint(max1, 10, 64)
@@ -255,6 +283,7 @@ func buildVectorKey(key string) {
 		if tsDiff < 0 {
 			tsDiff = -tsDiff
 		}
+		log.Debug(fmt.Sprintf("val1 = %d, val2 = %d", vectors[key].Values[max1], vectors[key].Values[max2]))
 		if vectors[key].Values[max1] < vectors[key].Values[max2] {
 			// Deal with vector value resets, not perfect, but good enough
 			vectors[key].LastDiff = vectors[key].Values[max1]
@@ -294,14 +323,18 @@ func parseBoolean(v string, defaultValue bool) bool {
 }
 
 func readState() {
+	fi, fierr := os.Stat(*state)
+	if fierr != nil {
+		log.Err(fierr.Error())
+		return
+	}
+
 	file, err := os.Open(*state)
 	if err != nil {
 		log.Err(err.Error())
 	}
-	// TODO: FIXME: Should not be hardcoding 10M limit here, should be
-	// figuring this out from the size of the file from which we are
-	// reading data.
-	data := make([]byte, 1024*1024*16)
+
+	data := make([]byte, fi.Size())
 	count, err := file.Read(data)
 	log.Debug(fmt.Sprintf("Read %d bytes from statefile %s", count, *state))
 	if count == 0 {
@@ -318,7 +351,7 @@ func readState() {
 	var savestate SaveState
 	umerr := json.Unmarshal(data, &savestate)
 	if umerr != nil {
-		log.Err("Could not read data from savestate")
+		log.Err("Could not read data from savestate " + umerr.Error())
 	} else {
 		vectors = savestate.Vectors
 	}
@@ -327,6 +360,9 @@ func readState() {
 
 func serializeToFile() {
 	log.Info("serializeToFile()")
+
+	serializeLock.Lock()
+	defer serializeLock.Unlock()
 
 	savestate := &SaveState{
 		Vectors:  vectors,
@@ -338,9 +374,13 @@ func serializeToFile() {
 		log.Err(err.Error())
 	}
 
-	log.Debug(string(s))
-
-	// TODO: implement writing to state file
+	file, ferr := os.Create(*state)
+	if ferr != nil {
+		log.Err(ferr.Error())
+	} else {
+		file.Write(s)
+		file.Close()
+	}
 }
 
 func handleUdpClient(conn *net.UDPConn) {
@@ -380,9 +420,12 @@ func udpServer() {
 // Main body
 
 func main() {
+	flag.Parse()
+
 	log.Info("Initializing VDED server")
 	vectors = make(map[string]*Vector)
 	switches = make(map[string]*Switch)
+	serializeLock = new(sync.RWMutex)
 
 	// Read state
 	readState()
@@ -432,8 +475,8 @@ func main() {
 	flushThread := func() {
 		log.Info("[FLUSH] Thread started")
 		for {
-			serializeToFile()
 			time.Sleep(1800 * time.Second)
+			serializeToFile()
 		}
 	}
 	go flushThread()
@@ -454,5 +497,6 @@ func main() {
 	http.HandleFunc("/vector", httpVectorHandler)
 	http.HandleFunc("/switch", httpSwitchHandler)
 	http.HandleFunc("/dumpvector", httpVectorDumpHandler)
+	http.HandleFunc("/control", httpControlHandler)
 	httpServer.ListenAndServe()
 }
