@@ -9,9 +9,8 @@ Vendor:         jbuchbinder
 Packager:       Jeff Buchbinder <jeff@freemedsoftware.org>
 Source0:        %{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildArch:      noarch
 
-Requires:       nodejs
+BuildRequires:  go
 
 %description
 Vector Delta Engine Daemon keeps track of ever-increasing values (vectors)
@@ -21,12 +20,12 @@ and feeds the deltas into Ganglia.
 %setup -q
 
 %build
-echo "build not needed" 
+go build
 
 %install
 # install the js files which to the work
-%{__mkdir_p} %{buildroot}/usr/share/%{name}
-%{__install} -Dp -m0644 vded.js gmetric.js %{buildroot}/usr/share/%{name}
+%{__mkdir_p} %{buildroot}/usr/sbin/
+%{__install} -Dp -m0644 %{name} %{buildroot}/usr/sbin/%{name}
 
 # Install init scripts
 %{__install} -Dp -m0755 redhat/vded %{buildroot}%{_initrddir}/%{name}
