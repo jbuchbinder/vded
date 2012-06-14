@@ -19,15 +19,23 @@ It also has the ability to track on/off values, which it refers to as
 It also de/serializes state to a file, so that history isn't lost when
 it restarts.
 
-**vded** is written in [node.js](http://nodejs.org/), for
+**vded** is written in [Go](http://golang.org/), for
 convenience and (hopefully) speed.
 
 ## Building
 
 * Prerequisites (Ubuntu/Debian):
-`sudo apt-get install nodejs npm ; sudo npm install -g gmetric`
+`sudo apt-get install golang`
+* Building:
+`go build`
 
 ## Using
+
+### Control
+
+`http://localhost:48333/control?action=serialize`
+
+Serialize all data to disk in JSON format.
 
 ### Switches
 
@@ -43,7 +51,13 @@ convenience and (hopefully) speed.
 Queries to **vded** are as simple as
 `http://localhost:48333/vector?host=HOSTNAME&vector=NAME&value=VALUE&ts=TIMESTAMPINSEC&submit_metric=TRUEORFALSE&units=UNITS&group=GROUP`
 
-It will return a "hash" of values, including:
+That will submit values, and will return OK if successful.
+
+Dumping the value of a vector can be accomplished with
+
+`http://localhost:48333/dumpvector?host=HOSTNAME&vector=NAME`
+
+which will return a "hash" of values, including:
 
 * `last_diff`: Delta between last data reporting period and this one.
 * `per_minute`: Rate per minute since the last piece of data was pushed
