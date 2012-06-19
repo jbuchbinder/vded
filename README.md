@@ -37,6 +37,10 @@ convenience and (hopefully) speed.
 
 Serialize all data to disk in JSON format.
 
+`http://localhost:48333/control?action=shutdown`
+
+Serialize data to disk and shut down VDED service.
+
 ### Switches
 
 `http://localhost:48333/switch?host=HOSTNAME&switch=NAME&value=VALUE&ts=TIMESTAMPINSEC&action=put`

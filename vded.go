@@ -14,9 +14,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	//	"os/signal"
 	"sort"
 	"strconv"
 	"sync"
+	//	"syscall"
 	"time"
 )
 
@@ -88,6 +90,14 @@ func httpControlHandler(w http.ResponseWriter, r *http.Request) {
 			go serializeToFile()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintf(w, "%s", "OK: started serialize job")
+		}
+
+	case pAction == "serialize":
+		{
+			fmt.Fprintf(w, "%s", "Started shutdown process.")
+			log.Warning("[VDED] Shutting down server with " + sig.String())
+			serializeToFile()
+			os.Exit(0)
 		}
 
 	default:
@@ -428,8 +438,12 @@ func main() {
 	switches = make(map[string]*Switch)
 	serializeLock = new(sync.RWMutex)
 
+	//signalChannel := make(chan os.Signal)
+	//signal.Notify(signalChannel, syscall.SIGHUP, syscall.SIGKILL, syscall.SIGQUIT)
+
 	// Read state
 	readState()
+	defer serializeToFile()
 
 	// Set up gmetric connection
 
@@ -500,4 +514,9 @@ func main() {
 	http.HandleFunc("/dumpvector", httpVectorDumpHandler)
 	http.HandleFunc("/control", httpControlHandler)
 	httpServer.ListenAndServe()
+
+	//sig := <-signalChannel
+	//log.Warning("[VDED] Shutting down server with " + sig.String())
+	//serializeToFile()
+	//os.Exit(0)
 }

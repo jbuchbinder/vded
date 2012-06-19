@@ -9,5 +9,6 @@
 # -max=ENTRIES      Maximum number of entries to retain (defaults to 300)
 #
 
-VDED_OPTIONS=" -state=/var/lib/vded/state.json -ghost=127.0.0.1 -gport=8649 "
+VDED_PORT=48333
+VDED_OPTIONS=" -port=${VDED_PORT} -state=/var/lib/vded/state.json -ghost=127.0.0.1 -gport=8649 "
 

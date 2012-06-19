@@ -54,6 +54,8 @@ start() {
 
 stop() {
 	echo -n $"Stopping $NAME daemon: "
+    wget -O /dev/stdout -q "http://localhost:${VDED_PORT}/control?action=shutdown"
+    sleep 10 # wait for serialization
     pid=$(ps aux | grep vded | grep -v grep | awk '{print $2}')
     kill $pid
 	RETVAL=$?
