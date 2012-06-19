@@ -71,7 +71,7 @@ restart() {
 
 reload() {
 	trap "" SIGHUP
-	killall -HUP vded.js
+	killall -HUP vded
 }	
 
 case "$1" in

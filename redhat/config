@@ -1,14 +1,13 @@
 #
 # Configuration options for VDED
 #
-# -P|--pid PIDFILE       Path for pid file
-# -p|--port PORT         Listening port (default is 48333)
-# -s|--state STATEFILE   Path for save state file
-# -G|--ghost HOST        Ganglia hostname
-# -g|--gport PORT        Ganglia port
-# -S|--gspoof IP:HOST    Ganglia default spoof
-# -m|--max INT           Maximum number of entries to retain
+# -port=PORT       Port to listen for requests (defaults to 48333)
+# -state=FILE      Path for JSON serialization (defaults to "/var/lib/vded/state.json"
+# -ghost=HOST      Ganglia host (defaults to "localhost")
+# -gport=PORT      Ganglia port (defaults to 8649)
+# -gspoof=IP:HOST  Ganglia spoof string (defaults to "")
+# -max=ENTRIES      Maximum number of entries to retain (defaults to 300)
 #
 
-VDED_OPTIONS=" -s /var/lib/vded/state.json -G 127.0.0.1 -g 8649 "
+VDED_OPTIONS=" -state=/var/lib/vded/state.json -ghost=127.0.0.1 -gport=8649 "
 
