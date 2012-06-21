@@ -95,7 +95,7 @@ func httpControlHandler(w http.ResponseWriter, r *http.Request) {
 	case pAction == "serialize":
 		{
 			fmt.Fprintf(w, "%s", "Started shutdown process.")
-			log.Warning("[VDED] Shutting down server with " + sig.String())
+			log.Warning("[VDED] Shutting down server from control action")
 			serializeToFile()
 			os.Exit(0)
 		}
