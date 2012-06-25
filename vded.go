@@ -97,6 +97,7 @@ func httpControlHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", "Started shutdown process.")
 			log.Warning("[VDED] Shutting down server from control action")
 			serializeToFile()
+			log.Warning("[VDED] Shutting down NOW")
 			os.Exit(0)
 		}
 
@@ -173,12 +174,15 @@ func httpSwitchHandler(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
+				if switches[switchKey].Mutex == nil {
+					switches[switchKey].Mutex = new(sync.RWMutex)
+				}
 				switches[switchKey].Mutex.Lock()
 				switches[switchKey].Values[pTs] = value
 				switches[switchKey].LatestValue = value
 				switches[switchKey].Mutex.Unlock()
 			} else {
-				// Create new vector
+				// Create new switch
 				switches[switchKey] = &Switch{
 					Host:        pHost,
 					Name:        pSwitch,
@@ -225,6 +229,9 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 
 	if _, ok := vectors[vectorKey]; ok {
 		// Key exists
+		if vectors[vectorKey].Mutex == nil {
+			vectors[vectorKey].Mutex = new(sync.RWMutex)
+		}
 		vectors[vectorKey].Mutex.Lock()
 		vectors[vectorKey].Values[pTs] = value
 		vectors[vectorKey].LatestValue = value
@@ -379,11 +386,14 @@ func serializeToFile() {
 		Switches: switches,
 	}
 
+	mTimeStart := time.Now()
 	s, err := json.Marshal(savestate)
 	if err != nil {
 		log.Err(err.Error())
 	}
+	mTimeEnd := time.Now()
 
+	ioTimeStart := time.Now()
 	file, ferr := os.Create(*state)
 	if ferr != nil {
 		log.Err(ferr.Error())
@@ -391,6 +401,13 @@ func serializeToFile() {
 		file.Write(s)
 		file.Close()
 	}
+	ioTimeEnd := time.Now()
+
+	// Get some stats
+	mDuration := mTimeEnd.Sub(mTimeStart)
+	log.Info(fmt.Sprintf("[SERIALIZE] %s marshalling", mDuration.String()))
+	ioDuration := ioTimeEnd.Sub(ioTimeStart)
+	log.Info(fmt.Sprintf("[SERIALIZE] %s IO to disk", ioDuration.String()))
 }
 
 func handleUdpClient(conn *net.UDPConn) {
@@ -453,6 +470,9 @@ func main() {
 		for {
 			time.Sleep(300 * time.Second)
 			for k, _ := range vectors {
+				if vectors[k].Mutex == nil {
+					vectors[k].Mutex = new(sync.RWMutex)
+				}
 				vectors[k].Mutex.Lock()
 				if len(vectors[k].Values) > *maxEntries {
 					targetPurge := len(vectors[k].Values) - *maxEntries
@@ -468,6 +488,9 @@ func main() {
 				vectors[k].Mutex.Unlock()
 			}
 			for sk, _ := range switches {
+				if switches[sk].Mutex == nil {
+					switches[sk].Mutex = new(sync.RWMutex)
+				}
 				switches[sk].Mutex.Lock()
 				if len(switches[sk].Values) > *maxEntries {
 					targetPurge := len(switches[sk].Values) - *maxEntries
