@@ -13,6 +13,10 @@ clean:
 vded: clean
 	go build
 
+install:
+	mkdir -p $(DESTDIR)/usr/sbin
+	cp -v vded $(DESTDIR)/usr/sbin/vded
+
 tar:
 	rm -rf vded-$(VERSION)
 	git clone git://github.com/jbuchbinder/vded.git vded-$(VERSION)
