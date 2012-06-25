@@ -1,0 +1,15 @@
+description "vded"
+author      "jbuchbinder"
+
+start on startup
+stop on shutdown
+
+script
+    # We found $HOME is needed. Without it, we ran into problems
+    export HOME="/root"
+
+    # Import VDED_OPTIONS
+    source /etc/vded/config
+
+    exec sudo -u nobody /usr/sbin/vded $VDED_OPTIONS < /dev/null &
+end script

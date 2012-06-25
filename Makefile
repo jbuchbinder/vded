@@ -5,6 +5,8 @@
 
 VERSION=$(shell cat VERSION)
 
+all: vded
+
 dist: tar
 
 clean:
@@ -15,7 +17,7 @@ vded: clean
 
 install:
 	mkdir -p $(DESTDIR)/usr/sbin
-	cp -v vded $(DESTDIR)/usr/sbin/vded
+	cp -v vded $(DESTDIR)/usr/sbin/
 
 tar:
 	rm -rf vded-$(VERSION)

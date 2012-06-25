@@ -1,0 +1,11 @@
+vded (0.0.5) unstable; urgency=low
+
+  * Packaging for Go build.
+
+ -- Jeff Buchbinder <jeff@freemedsoftware.org>  Mon, 25 Jun 2012 14:38:42 -0400
+
+vded (0.0.1) unstable; urgency=low
+
+  * Initial packaging.
+
+ -- Jeff Buchbinder <jeff@freemedsoftware.org>  Mon, 13 Feb 2012 13:21:42 -0500

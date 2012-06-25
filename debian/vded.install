@@ -1,0 +1,3 @@
+vded	/usr/sbin/
+debian/config	/etc/vded/config
+debian/scripts/start	/usr/share/vded/scripts

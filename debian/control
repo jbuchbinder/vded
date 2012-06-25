@@ -1,0 +1,12 @@
+Source: vded
+Section: devel
+Priority: optional
+Maintainer: Jeff Buchbinder <jeff@freemedsoftware.org>
+Standards-Version: 3.9.1
+Build-Depends: golang-go (>= 1.0.0)
+
+Package: vded
+Architecture: any
+Description: Vector Delta Engine Daemon
+  .
+
