@@ -92,7 +92,7 @@ func httpControlHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", "OK: started serialize job")
 		}
 
-	case pAction == "serialize":
+	case pAction == "shutdown":
 		{
 			fmt.Fprintf(w, "%s", "Started shutdown process.")
 			log.Warning("[VDED] Shutting down server from control action")
