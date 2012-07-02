@@ -201,8 +201,6 @@ func httpSwitchHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	// TODO: FIXME: XXX: Need to implement switch handling
 }
 
 func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +272,8 @@ func buildVectorKey(key string) {
 	// Adjust values
 	vectors[key].Mutex.Lock()
 
+	bTimeStart := time.Now()
+
 	log.Info(fmt.Sprintf("buildVectorKey len = %d", len(vectors[key].Values)))
 	if len(vectors[key].Values) <= 1 {
 		vectors[key].LastDiff = vectors[key].LatestValue
@@ -317,7 +317,13 @@ func buildVectorKey(key string) {
 		}
 	}
 
+	bTimeEnd := time.Now()
+
 	// TODO: IMPLEMENT: XXX:
+
+	// Figure out duration
+	bDuration := bTimeEnd.Sub(bTimeStart)
+	log.Info(fmt.Sprintf("buildVectorKey: %s duration = %s", key, bDuration.String()))
 
 	vectors[key].Mutex.Unlock()
 
