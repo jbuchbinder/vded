@@ -1,3 +1,6 @@
 [submodule "lib/go-gmetric"]
 	path = lib/go-gmetric
 	url = git://github.com/jbuchbinder/go-gmetric.git
+[submodule "lib/go-redis"]
+	path = lib/go-redis
+	url = git://github.com/jbuchbinder/go-redis.git
