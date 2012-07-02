@@ -1,13 +1,6 @@
 #!/bin/sh
 
-if [ -x /usr/bin/nodejs ]; then
-	NODE_BIN=/usr/bin/nodejs
-elif [ -x /usr/bin/node ]; then
-	NODE_BIN=/usr/bin/node
-else
-	echo "Can't find /usr/bin/nodejs or /usr/bin/node"
-	exit 1
-fi
+VDED_BIN=/usr/sbin/vded
 
 if [ -f /etc/defaults/vded ]; then
   . /etc/defaults/vded
@@ -15,5 +8,5 @@ elif [ -f /etc/vded/config ]; then
   . /etc/vded/config
 fi
 
-$NODE_BIN /usr/share/vded/vded.js $VDED_OPTIONS 2>&1 >> /var/log/vded/vded.log
+$VDED_BIN $VDED_OPTIONS 2>&1 >> /var/log/vded/vded.log &
 
