@@ -6,7 +6,7 @@
 package main
 
 import (
-	"./go-gmetric/gmetric"
+	"./lib/go-gmetric/gmetric"
 	"encoding/json"
 	"flag"
 	"fmt"
