@@ -20,7 +20,7 @@ and feeds the deltas into Ganglia.
 %setup -q
 
 %build
-go build
+go build -o vded
 
 %install
 # install the js files which to the work
@@ -69,7 +69,7 @@ chkconfig --add %{name}
 %defattr(-,root,root,-)
 %doc README.md
 
-/usr/share/%{name}/*
+%{_sbindir}/%{name}
 %{_initrddir}/%{name}
 %config %{_localstatedir}/lib/%{name}
 %config %{_sysconfdir}/%{name}
