@@ -25,7 +25,7 @@ go build -o vded
 %install
 # install the js files which to the work
 %{__mkdir_p} %{buildroot}/usr/sbin/
-%{__install} -Dp -m0644 %{name} %{buildroot}/usr/sbin/%{name}
+%{__install} -Dp -m0755 %{name} %{buildroot}/usr/sbin/%{name}
 
 # Install init scripts
 %{__install} -Dp -m0755 redhat/vded %{buildroot}%{_initrddir}/%{name}
