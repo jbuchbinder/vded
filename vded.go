@@ -313,7 +313,7 @@ func buildVectorKey(key string) {
 		if tsDiff < 30 {
 			vectors[key].PerMinute = 0
 		} else {
-			vectors[key].PerMinute = float64(vectors[key].LastDiff / (uint64(tsDiff) / 60))
+			vectors[key].PerMinute = float64(float64(vectors[key].LastDiff) / float64(float64(tsDiff)/60))
 		}
 	}
 
