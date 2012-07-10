@@ -323,11 +323,12 @@ func buildVectorKey(key string) {
 
 	// Figure out duration
 	bDuration := bTimeEnd.Sub(bTimeStart)
-	log.Info(fmt.Sprintf("buildVectorKey: %s duration = %s", key, bDuration.String()))
+	log.Info(fmt.Sprintf("buildVectorKey: %s executed w/duration = %s", key, bDuration.String()))
 
 	vectors[key].Mutex.Unlock()
 
 	// Submit metric
+	log.Info(fmt.Sprintf("gm.SendMetric %s = %s", vectors[key].Name, fmt.Sprint(vectors[key].LatestValue)))
 	go gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LatestValue), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 }
 
@@ -454,6 +455,7 @@ func udpServer() {
 
 func main() {
 	gm.SetLogger(log)
+	gm.SetVerbose(true)
 	flag.Parse()
 
 	log.Info("Initializing VDED server")
