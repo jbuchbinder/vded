@@ -30,7 +30,7 @@ var (
 	spoof         = flag.String("gspoof", "", "ganglia default spoof")
 	maxEntries    = flag.Int("max", 300, "maximum number of entries to retain")
 	gIP, _        = net.ResolveIPAddr("ip4", *ghost)
-	gm            = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
+	gm            gmetric.Gmetric
 	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
 	serializeLock *sync.RWMutex
 )
@@ -455,8 +455,9 @@ func udpServer() {
 
 func main() {
 	gm.SetLogger(log)
-	gm.SetVerbose(true)
+	gm.SetVerbose(false)
 	flag.Parse()
+	gm = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
 
 	log.Info("Initializing VDED server")
 	vectors = make(map[string]*Vector)
