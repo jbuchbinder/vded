@@ -329,7 +329,8 @@ func buildVectorKey(key string) {
 
 	// Submit metric
 	log.Info(fmt.Sprintf("gm.SendMetric %s = %s", vectors[key].Name, fmt.Sprint(vectors[key].LatestValue)))
-	go gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LatestValue), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+	go gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+	// go gm.SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 }
 
 func getKeyName(hostName, vectorName string) string {
