@@ -17,6 +17,7 @@ import (
 	//	"os/signal"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	//	"syscall"
 	"time"
@@ -25,12 +26,11 @@ import (
 var (
 	port          = flag.Int("port", 48333, "port to listen for requests")
 	state         = flag.String("state", "/var/lib/vded/state.json", "path for save state file")
-	ghost         = flag.String("ghost", "localhost", "ganglia host")
+	ghost         = flag.String("ghost", "localhost", "ganglia host(s), comma separated")
 	gport         = flag.Int("gport", 8649, "ganglia port")
 	spoof         = flag.String("gspoof", "", "ganglia default spoof")
 	maxEntries    = flag.Int("max", 300, "maximum number of entries to retain")
-	gIP, _        = net.ResolveIPAddr("ip4", *ghost)
-	gm            gmetric.Gmetric
+	gm            []gmetric.Gmetric
 	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
 	serializeLock *sync.RWMutex
 )
@@ -328,9 +328,11 @@ func buildVectorKey(key string) {
 	vectors[key].Mutex.Unlock()
 
 	// Submit metric
-	log.Info(fmt.Sprintf("gm.SendMetric %s = %s", vectors[key].Name, fmt.Sprint(vectors[key].LatestValue)))
-	go gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
-	// go gm.SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+	for iter := 0; iter < len(gm); iter++ {
+		log.Info(fmt.Sprintf("gm[%d].SendMetric %s = %s", iter, vectors[key].Name, fmt.Sprint(vectors[key].LatestValue)))
+		go gm[iter].SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+		// go gm[iter].SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+	}
 }
 
 func getKeyName(hostName, vectorName string) string {
@@ -455,10 +457,36 @@ func udpServer() {
 // Main body
 
 func main() {
-	gm.SetLogger(log)
-	gm.SetVerbose(false)
 	flag.Parse()
-	gm = gmetric.Gmetric{gIP.IP, *gport, *spoof, *spoof}
+
+	var gIPs []net.IPAddr
+
+	if strings.Contains(*ghost, ",") {
+		gIPs = make([]net.IPAddr, strings.Count(*ghost, ",")+1)
+		gm = make([]gmetric.Gmetric, strings.Count(*ghost, ",")+1)
+		segs := strings.Split(*ghost, ",")
+		for i := 0; i < len(segs); i++ {
+			gIP, err := net.ResolveIPAddr("ip4", segs[i])
+			if err != nil {
+				panic(err.Error())
+			}
+			gIPs[i] = *gIP
+		}
+	} else {
+		gIPs = make([]net.IPAddr, 1)
+		gm = make([]gmetric.Gmetric, 1)
+		gIP, err := net.ResolveIPAddr("ip4", *ghost)
+		if err != nil {
+			panic(err.Error())
+		}
+		gIPs[0] = *gIP
+	}
+
+	for i := 0; i < len(gIPs); i++ {
+		gm[i] = gmetric.Gmetric{gIPs[i].IP, *gport, *spoof, *spoof}
+		gm[i].SetLogger(log)
+		gm[i].SetVerbose(false)
+	}
 
 	log.Info("Initializing VDED server")
 	vectors = make(map[string]*Vector)
