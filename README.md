@@ -31,6 +31,18 @@ convenience and (hopefully) speed.
 
 ## Using
 
+### CLI Usage
+
+```
+Usage of vded:
+  -ghost="localhost": ganglia host(s), comma separated
+  -gport=8649: ganglia port
+  -gspoof="": ganglia default spoof
+  -max=300: maximum number of entries to retain
+  -port=48333: port to listen for requests
+  -state="/var/lib/vded/state.json": path for save state file
+```
+
 ### Control
 
 `http://localhost:48333/control?action=serialize`
