@@ -329,8 +329,8 @@ func buildVectorKey(key string) {
 
 	// Submit metric
 	for iter := 0; iter < len(gm); iter++ {
-		log.Info(fmt.Sprintf("gm[%d].SendMetric %s = %s", iter, vectors[key].Name, fmt.Sprint(vectors[key].LatestValue)))
-		go gm[iter].SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+		log.Info(fmt.Sprintf("gm[%d].SendMetric %s = %s", iter, vectors[key].Name, fmt.Sprint(vectors[key].LastDiff)))
+		gm[iter].SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 		// go gm[iter].SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 	}
 }
