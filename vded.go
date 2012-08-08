@@ -30,7 +30,7 @@ var (
 	gport         = flag.Int("gport", 8649, "ganglia port")
 	spoof         = flag.String("gspoof", "", "ganglia default spoof")
 	maxEntries    = flag.Int("max", 300, "maximum number of entries to retain")
-	gm            []gmetric.Gmetric
+	gm            gmetric.Gmetric
 	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
 	serializeLock *sync.RWMutex
 )
@@ -328,11 +328,9 @@ func buildVectorKey(key string) {
 	vectors[key].Mutex.Unlock()
 
 	// Submit metric
-	for iter := 0; iter < len(gm); iter++ {
-		log.Info(fmt.Sprintf("gm[%d].SendMetric %s = %s", iter, vectors[key].Name, fmt.Sprint(vectors[key].LastDiff)))
-		gm[iter].SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
-		// go gm[iter].SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
-	}
+	log.Info(fmt.Sprintf("gm.SendMetric %s = %s", vectors[key].Name, fmt.Sprint(vectors[key].LastDiff)))
+	gm.SendMetric(vectors[key].Name, fmt.Sprint(vectors[key].LastDiff), gmetric.VALUE_UNSIGNED_INT, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
+	// go gm.SendMetric(fmt.Sprintf("%s_per_1min", vectors[key].Name), fmt.Sprint(vectors[key].PerMinute), gmetric.VALUE_DOUBLE, vectors[key].Units, gmetric.SLOPE_BOTH, 300, 600, vectors[key].Group)
 }
 
 func getKeyName(hostName, vectorName string) string {
@@ -459,33 +457,28 @@ func udpServer() {
 func main() {
 	flag.Parse()
 
-	var gIPs []net.IPAddr
+	gm = gmetric.Gmetric{
+		Host:  *spoof,
+		Spoof: *spoof,
+	}
+	gm.SetLogger(log)
+	gm.SetVerbose(false)
 
 	if strings.Contains(*ghost, ",") {
-		gIPs = make([]net.IPAddr, strings.Count(*ghost, ",")+1)
-		gm = make([]gmetric.Gmetric, strings.Count(*ghost, ",")+1)
 		segs := strings.Split(*ghost, ",")
 		for i := 0; i < len(segs); i++ {
 			gIP, err := net.ResolveIPAddr("ip4", segs[i])
 			if err != nil {
 				panic(err.Error())
 			}
-			gIPs[i] = *gIP
+			gm.AddServer(gmetric.GmetricServer{gIP.IP, *gport})
 		}
 	} else {
-		gIPs = make([]net.IPAddr, 1)
-		gm = make([]gmetric.Gmetric, 1)
 		gIP, err := net.ResolveIPAddr("ip4", *ghost)
 		if err != nil {
 			panic(err.Error())
 		}
-		gIPs[0] = *gIP
-	}
-
-	for i := 0; i < len(gIPs); i++ {
-		gm[i] = gmetric.Gmetric{gIPs[i].IP, *gport, *spoof, *spoof}
-		gm[i].SetLogger(log)
-		gm[i].SetVerbose(false)
+		gm.AddServer(gmetric.GmetricServer{gIP.IP, *gport})
 	}
 
 	log.Info("Initializing VDED server")
