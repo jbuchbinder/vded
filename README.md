@@ -25,9 +25,14 @@ convenience and (hopefully) speed.
 ## Building
 
 * Prerequisites (Ubuntu/Debian):
-`sudo apt-get install golang`
+```
+sudo apt-get install golang
+```
 * Building:
-`go build`
+```
+go get github.com/jbuchbinder/go-gmetric/gmetric
+go build
+```
 
 ## Using
 
@@ -35,6 +40,7 @@ convenience and (hopefully) speed.
 
 ```
 Usage of vded:
+  -daemon=false: fork off daemon process
   -ghost="localhost": ganglia host(s), comma separated
   -gport=8649: ganglia port
   -gspoof="": ganglia default spoof

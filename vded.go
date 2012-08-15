@@ -6,10 +6,10 @@
 package main
 
 import (
-	"./lib/go-gmetric/gmetric"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/jbuchbinder/go-gmetric/gmetric"
 	"log/syslog"
 	"net"
 	"net/http"
