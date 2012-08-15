@@ -30,6 +30,7 @@ var (
 	gport         = flag.Int("gport", 8649, "ganglia port")
 	spoof         = flag.String("gspoof", "", "ganglia default spoof")
 	maxEntries    = flag.Int("max", 300, "maximum number of entries to retain")
+	daemonize     = flag.Bool("daemon", false, "fork off daemon process")
 	gm            gmetric.Gmetric
 	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
 	serializeLock *sync.RWMutex
@@ -549,6 +550,11 @@ func main() {
 		}
 	}
 	go flushThread()
+
+	if *daemonize {
+		log.Info("[VDED] Attempting to fork off daemon process")
+		daemon(false, false)
+	}
 
 	// Spin up UDP server for requests
 	log.Info(fmt.Sprintf("[VDED] Starting UDP service on :%d", *port))
