@@ -276,8 +276,8 @@ func buildVectorKey(key string) {
 	bTimeStart := time.Now()
 
 	log.Info(fmt.Sprintf("buildVectorKey len = %d", len(vectors[key].Values)))
-	if len(vectors[key].Values) <= 1 {
-		vectors[key].LastDiff = vectors[key].LatestValue
+	if len(vectors[key].Values) <= 2 {
+		vectors[key].LastDiff = 0
 		vectors[key].PerMinute = 0
 		vectors[key].Per5Minutes = 0
 		vectors[key].Per10Minutes = 0
