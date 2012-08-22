@@ -24,9 +24,14 @@ convenience and (hopefully) speed.
 
 ## Building
 
+At the moment, VDED should be compiled from golang-tip, since there are
+some serious issues with the net/http code in the golang 1.0.2 "stable"
+release.
+
 * Prerequisites (Ubuntu/Debian):
 ```
-sudo apt-get install golang
+sudo add-apt-repository ppa:gophers/go && sudo apt-get update
+sudo apt-get install golang-tip
 ```
 * Building:
 ```

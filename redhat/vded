@@ -25,6 +25,9 @@ LOGFILE=/var/log/vded.log
 
 [ -x $VDED_EXE ] || exit 0
 [ -f /etc/vded/config ] && . /etc/vded/config
+if [ "$VDED_PORT" == "" ]; then
+  VDED_PORT=48333
+fi
 
 mkdir -p /var/lib/vded /var/log
 
@@ -39,7 +42,7 @@ start() {
 	if [ ! -f /var/lock/subsys/$NAME ]; then
 	    echo -n $"Starting $NAME daemon: "
         # daemon
-        daemon $VDED_EXE $VDED_OPTIONS >> $LOGFILE 2>&1 &
+        $VDED_EXE -daemon $VDED_OPTIONS >> $LOGFILE 2>&1
 	      RETVAL=$?
         if [ $RETVAL -eq 0 ]; then
             touch /var/lock/subsys/$NAME
@@ -56,10 +59,21 @@ stop() {
 	echo -n $"Stopping $NAME daemon: "
     rm -f /var/lock/subsys/$NAME
     wget -O /dev/stdout -q "http://localhost:${VDED_PORT}/control?action=shutdown"
-    sleep 10 # wait for serialization
     pid=$(ps aux | grep vded | grep -v grep | awk '{print $2}')
-    kill $pid
-    RETVAL=$?
+    RETVAL=1
+    COUNT=0
+    while [ $COUNT -lt 10 ]; do
+      STILL_HERE=$( nc -z -w 1 localhost $VDED_PORT; echo $? )
+      if [ $STILL_HERE -eq 1 ]; then
+        kill $pid
+      else
+        RETVAL=0
+        COUNT=10
+      fi
+    done
+    if [ $RETVAL -eq 1 ]; then
+      kill -9 $pid
+    fi
     echo_success
     echo
     return 0
