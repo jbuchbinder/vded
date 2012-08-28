@@ -30,13 +30,11 @@ release.
 
 * Prerequisites (Ubuntu/Debian):
 ```
-sudo add-apt-repository ppa:gophers/go && sudo apt-get update
-sudo apt-get install golang-tip
+sudo add-apt-repository ppa:gophers/go && sudo apt-get update && sudo apt-get install golang-tip
 ```
 * Building:
 ```
-go get github.com/jbuchbinder/go-gmetric/gmetric
-go build
+go get github.com/jbuchbinder/go-gmetric/gmetric && go build
 ```
 
 ## Using
