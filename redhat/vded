@@ -41,8 +41,7 @@ start() {
 	# Check if it is already running
 	if [ ! -f /var/lock/subsys/$NAME ]; then
 	    echo -n $"Starting $NAME daemon: "
-        # daemon
-        $VDED_EXE -daemon $VDED_OPTIONS >> $LOGFILE 2>&1
+        daemon $VDED_EXE $VDED_OPTIONS >> $LOGFILE 2>&1
 	      RETVAL=$?
         if [ $RETVAL -eq 0 ]; then
             touch /var/lock/subsys/$NAME
