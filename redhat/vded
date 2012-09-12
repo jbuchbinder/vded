@@ -58,21 +58,21 @@ start() {
 stop() {
 	echo -n $"Stopping $NAME daemon: "
     rm -f /var/lock/subsys/$NAME
-    wget -O /dev/stdout -q "http://localhost:${VDED_PORT}/control?action=shutdown"
+    wget -T 3 -O /dev/stdout -q "http://localhost:${VDED_PORT}/control?action=shutdown"
     pid=$(ps aux | grep vded | grep -v grep | awk '{print $2}')
     RETVAL=1
     COUNT=0
     while [ $COUNT -lt 10 ]; do
       STILL_HERE=$( nc -z -w 1 localhost $VDED_PORT; echo $? )
-      if [ $STILL_HERE -eq 1 ]; then
-        kill $pid
+      if [ $STILL_HERE -eq 0 ]; then
+        kill -QUIT $pid 2>&1 >> /dev/null
       else
         RETVAL=0
         COUNT=10
       fi
     done
     if [ $RETVAL -eq 1 ]; then
-      kill -9 $pid
+      kill -9 $pid 2>&1 >> /dev/null
     fi
     echo_success
     echo
