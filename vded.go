@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	//	"os/signal"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -553,6 +554,7 @@ func main() {
 
 	if *daemonize {
 		log.Info("[VDED] Attempting to fork off daemon process")
+		defer runtime.Goexit()
 		daemon(false, false)
 	}
 
