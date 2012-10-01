@@ -35,6 +35,7 @@ var (
 	gm            gmetric.Gmetric
 	log, _        = syslog.New(syslog.LOG_DEBUG, "vded")
 	serializeLock *sync.RWMutex
+	vectorQueue   = make(chan *VectorWork)
 )
 
 type Vector struct {
@@ -68,6 +69,18 @@ type SaveState struct {
 	Switches map[string]*Switch `json:"switches"`
 }
 
+type VectorWork struct {
+	VectorName   string
+	Host         string
+	Vector       string
+	Value        uint64
+	Ts           string
+	SubmitMetric bool
+	Units        string
+	Spoof        bool
+	Group        string
+}
+
 // Store of vectors
 var vectors map[string]*Vector
 var switches map[string]*Switch
@@ -77,6 +90,7 @@ func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpControlHandler(w http.ResponseWriter, r *http.Request) {
+	r.Close = true
 	pAction := r.FormValue("action")
 
 	if pAction == "" {
@@ -113,6 +127,7 @@ func httpControlHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
+	r.Close = true
 	//log.Printf("httpVectorDumpHandler()")
 
 	pHost := r.FormValue("host")
@@ -139,6 +154,7 @@ func httpVectorDumpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpSwitchHandler(w http.ResponseWriter, r *http.Request) {
+	r.Close = true
 	// Grab all proper variables
 	pAction := r.FormValue("action")
 	pHost := r.FormValue("host")
@@ -206,6 +222,7 @@ func httpSwitchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
+	r.Close = true
 	// Grab all proper variables
 	pHost := r.FormValue("host")
 	pVector := r.FormValue("vector")
@@ -227,63 +244,103 @@ func httpVectorHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug(fmt.Sprintf("Received vector request for %s", vectorKey))
 
-	if _, ok := vectors[vectorKey]; ok {
-		// Key exists
-		if vectors[vectorKey].Mutex == nil {
-			vectors[vectorKey].Mutex = new(sync.RWMutex)
-		}
-		vectors[vectorKey].Mutex.Lock()
-		vectors[vectorKey].Values[pTs] = value
-		vectors[vectorKey].LatestValue = value
-		vectors[vectorKey].Mutex.Unlock()
-	} else {
-		// Create new vector
-		vectors[vectorKey] = &Vector{
-			Host:         pHost,
-			Name:         pVector,
-			SubmitMetric: pSubmitMetric,
-			Spoof:        pSpoof,
-			Units:        pUnits,
-			Group:        pGroup,
-			LatestValue:  value,
-			LastDiff:     0,
-			PerMinute:    0,
-			Per5Minutes:  0,
-			Per10Minutes: 0,
-			Per30Minutes: 0,
-			PerHour:      0,
-			Mutex:        new(sync.RWMutex),
-			Values:       make(map[string]uint64),
-		}
-		vectors[vectorKey].Mutex.Lock()
-		vectors[vectorKey].Values[pTs] = value
-		vectors[vectorKey].Mutex.Unlock()
-	}
+	bTimeStart := time.Now()
 
 	// Handle building values, async
-	go buildVectorKey(vectorKey)
+	log.Debug(fmt.Sprintf("handleVector: before queue insert %s executed w/duration = %s", vectorKey, time.Now().Sub(bTimeStart).String()))
+	go func() {
+		vectorQueue <- &VectorWork{
+			VectorName:   vectorKey,
+			Host:         pHost,
+			Vector:       pVector,
+			Value:        value,
+			Ts:           pTs,
+			SubmitMetric: pSubmitMetric,
+			Units:        pUnits,
+			Spoof:        pSpoof,
+			Group:        pGroup,
+		}
+	}()
+	log.Debug(fmt.Sprintf("handleVector: after queue insert %s executed w/duration = %s", vectorKey, time.Now().Sub(bTimeStart).String()))
 
 	// Easy response, no data, since we're handling building the values
 	// and aggregation asynchronously
 	fmt.Fprintf(w, "OK")
+
+	bTimeEnd := time.Now()
+	bDuration := bTimeEnd.Sub(bTimeStart)
+	log.Info(fmt.Sprintf("handleVector: %s executed w/duration = %s", vectorKey, bDuration.String()))
 }
 
 // Helper functions
 
+func vectorWorker(id int, queue chan *VectorWork) {
+	var i *VectorWork
+	for {
+		log.Info(fmt.Sprintf("vectorWorker %d waiting for work", id))
+		i = <-queue
+		if i == nil {
+			break
+		}
+		log.Info(fmt.Sprintf("vectorWorker thread %d handling %s", id, i.VectorName))
+		bTimeStart := time.Now()
+		vectorKey := i.VectorName
+		if _, ok := vectors[vectorKey]; ok {
+			// Key exists
+			if vectors[vectorKey].Mutex == nil {
+				vectors[vectorKey].Mutex = new(sync.RWMutex)
+			}
+			vectors[vectorKey].Mutex.Lock()
+			vectors[vectorKey].Values[i.Ts] = i.Value
+			vectors[vectorKey].LatestValue = i.Value
+			vectors[vectorKey].Mutex.Unlock()
+		} else {
+			// Create new vector
+			vectors[vectorKey] = &Vector{
+				Host:         i.Host,
+				Name:         i.Vector,
+				SubmitMetric: i.SubmitMetric,
+				Spoof:        i.Spoof,
+				Units:        i.Units,
+				Group:        i.Group,
+				LatestValue:  i.Value,
+				LastDiff:     0,
+				PerMinute:    0,
+				Per5Minutes:  0,
+				Per10Minutes: 0,
+				Per30Minutes: 0,
+				PerHour:      0,
+				Mutex:        new(sync.RWMutex),
+				Values:       make(map[string]uint64),
+			}
+			vectors[vectorKey].Mutex.Lock()
+			vectors[vectorKey].Values[i.Ts] = i.Value
+			vectors[vectorKey].Mutex.Unlock()
+		}
+
+		buildVectorKey(i.VectorName)
+
+		bTimeEnd := time.Now()
+		bDuration := bTimeEnd.Sub(bTimeStart)
+		log.Info(fmt.Sprintf("vectorWorker: %s executed w/duration = %s", vectorKey, bDuration.String()))
+	}
+}
+
 func buildVectorKey(key string) {
 	// Adjust values
-	vectors[key].Mutex.Lock()
 
 	bTimeStart := time.Now()
 
 	log.Info(fmt.Sprintf("buildVectorKey len = %d", len(vectors[key].Values)))
 	if len(vectors[key].Values) <= 2 {
+		vectors[key].Mutex.Lock()
 		vectors[key].LastDiff = 0
 		vectors[key].PerMinute = 0
 		vectors[key].Per5Minutes = 0
 		vectors[key].Per10Minutes = 0
 		vectors[key].Per30Minutes = 0
 		vectors[key].PerHour = 0
+		vectors[key].Mutex.Unlock()
 	} else {
 		keys := make([]string, len(vectors[key].Values))
 		i := 0
@@ -305,18 +362,24 @@ func buildVectorKey(key string) {
 		log.Debug(fmt.Sprintf("val1 = %d, val2 = %d", vectors[key].Values[max1], vectors[key].Values[max2]))
 		if vectors[key].Values[max1] < vectors[key].Values[max2] {
 			// Deal with vector value resets, not perfect, but good enough
+			vectors[key].Mutex.Lock()
 			vectors[key].LastDiff = vectors[key].Values[max1]
+			vectors[key].Mutex.Unlock()
 		} else {
+			vectors[key].Mutex.Lock()
 			vectors[key].LastDiff = vectors[key].Values[max1] - vectors[key].Values[max2]
+			vectors[key].Mutex.Unlock()
 		}
 
 		// TODO: FIXME: Track back in history over time periods
 
+		vectors[key].Mutex.Lock()
 		if tsDiff < 30 {
 			vectors[key].PerMinute = 0
 		} else {
 			vectors[key].PerMinute = float64(float64(vectors[key].LastDiff) / float64(float64(tsDiff)/60))
 		}
+		vectors[key].Mutex.Unlock()
 	}
 
 	bTimeEnd := time.Now()
@@ -326,8 +389,6 @@ func buildVectorKey(key string) {
 	// Figure out duration
 	bDuration := bTimeEnd.Sub(bTimeStart)
 	log.Info(fmt.Sprintf("buildVectorKey: %s executed w/duration = %s", key, bDuration.String()))
-
-	vectors[key].Mutex.Unlock()
 
 	// Submit metric
 	log.Info(fmt.Sprintf("gm.SendMetric %s = %s", vectors[key].Name, fmt.Sprint(vectors[key].LastDiff)))
@@ -494,6 +555,11 @@ func main() {
 	// Read state
 	readState()
 	defer serializeToFile()
+
+	// Create workers for vectors
+	for vi := 1; vi <= 10; vi++ {
+		go vectorWorker(vi, vectorQueue)
+	}
 
 	// Set up gmetric connection
 
