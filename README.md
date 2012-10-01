@@ -4,6 +4,8 @@
 
 * Homepage: https://github.com/jbuchbinder/vded
 * Twitter: [@jbuchbinder](https://twitter.com/jbuchbinder)
+* [![Build
+  Status](https://secure.travis-ci.org/jbuchbinder/vded.png)](http://travis-ci.org/jbuchbinder/vded)
 
 ## What it is / What it does
 
